@@ -25,6 +25,37 @@
 - **UI**: Use Tamagui components (Card, Text, XStack, YStack) for consistent styling
 - **Error Handling**: Use optional chaining, proper error boundaries, status fields in interfaces
 
+## Commit Message Guidelines
+
+Follow [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) specification:
+
+**Format**: `<type>[optional scope]: <description>`
+
+**Required Types**:
+- `feat:` - New feature (correlates with MINOR in SemVer)
+- `fix:` - Bug fix (correlates with PATCH in SemVer)
+
+**Additional Types**:
+- `build:` - Build system or external dependencies
+- `chore:` - Maintenance tasks, no production code change
+- `ci:` - CI configuration files and scripts
+- `docs:` - Documentation only changes
+- `style:` - Code style changes (formatting, missing semicolons, etc)
+- `refactor:` - Code change that neither fixes a bug nor adds a feature
+- `perf:` - Performance improvements
+- `test:` - Adding missing tests or correcting existing tests
+- `config:` - Configuration changes
+- `deps:` - Dependency updates
+
+**Breaking Changes**: Use `!` after type/scope or `BREAKING CHANGE:` footer (correlates with MAJOR in SemVer)
+
+**Examples**:
+- `feat: add user authentication`
+- `fix(api): resolve timeout issue in user login`
+- `feat!: migrate to new authentication system`
+- `docs: update installation instructions`
+- `deps: upgrade react-native to 0.79`
+
 ## Framework Notes
 
 - Built with Expo Router v5+ and React Native 0.79+
