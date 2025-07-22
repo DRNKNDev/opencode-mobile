@@ -1,12 +1,20 @@
 export interface Session {
   id: string
+  time: {
+    created: number
+    updated: number
+  }
   title: string
-  createdAt: Date
-  updatedAt: Date
-  messageCount: number
-  status?: 'active' | 'idle' | 'error' | 'completed'
-  modelName?: string
-  lastMessage?: string
+  version: string
+  parentID?: string
+  revert?: {
+    messageID: string
+    part: number
+    snapshot?: string
+  }
+  share?: {
+    url: string
+  }
 }
 
 export interface Message {
