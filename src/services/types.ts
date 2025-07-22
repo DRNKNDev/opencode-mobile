@@ -32,6 +32,10 @@ export interface Model {
   name: string
   provider: string
   description?: string
+  providerId?: string
+  contextLimit?: number
+  outputLimit?: number
+  isAvailable?: boolean
 }
 
 export interface ConnectionStatus {
@@ -41,8 +45,22 @@ export interface ConnectionStatus {
   models?: Model[]
 }
 
+export interface ModelPreferences {
+  defaultModel: string
+  lastUsedModel: string
+  providerPreferences: Record<string, string>
+}
+
+export interface CachedModels {
+  models: Model[]
+  lastUpdated: number
+  serverUrl: string
+}
+
 export interface UserPreferences {
   selectedModel: string
   theme: 'tokyonight-dark' | 'tokyonight-light'
   hapticFeedback: boolean
 }
+
+

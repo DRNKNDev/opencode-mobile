@@ -1,6 +1,6 @@
 import { MMKV } from 'react-native-mmkv'
 import { STORAGE_KEYS } from '../config/constants'
-import type { Session, UserPreferences } from './types'
+import type { Session, UserPreferences, Model, ModelPreferences, CachedModels } from './types'
 
 class StorageService {
   private storage = new MMKV()
@@ -101,6 +101,75 @@ class StorageService {
 
   setUserPreferences(preferences: UserPreferences): void {
     this.storage.set(STORAGE_KEYS.userPreferences, JSON.stringify(preferences))
+  }
+
+  // Cached models
+  getCachedModels(): CachedModels | null {
+    const cachedJson = this.storage.getString(STORAGE_KEYS.cachedModels)
+    if (!cachedJson) return null
+
+    try {
+      const cached = JSON.parse(cachedJson)
+      return {
+        ...cached,
+        models: cached.models.map((model: any) => ({
+          ...model,
+          isAvailable: model.isAvailable ?? true,
+        })),
+      }
+    } catch {
+      return null
+    }
+  }
+
+  setCachedModels(models: Model[], serverUrl: string): void {
+    const cached: CachedModels = {
+      models,
+      lastUpdated: Date.now(),
+      serverUrl,
+    }
+    this.storage.set(STORAGE_KEYS.cachedModels, JSON.stringify(cached))
+  }
+
+  // Model preferences
+  getModelPreferences(): ModelPreferences {
+    const prefsJson = this.storage.getString(STORAGE_KEYS.modelPreferences)
+    if (!prefsJson) {
+      return {
+        defaultModel: '',
+        lastUsedModel: '',
+        providerPreferences: {},
+      }
+    }
+
+    try {
+      return JSON.parse(prefsJson)
+    } catch {
+      return {
+        defaultModel: '',
+        lastUsedModel: '',
+        providerPreferences: {},
+      }
+    }
+  }
+
+  setModelPreferences(preferences: ModelPreferences): void {
+    this.storage.set(STORAGE_KEYS.modelPreferences, JSON.stringify(preferences))
+  }
+
+  updateModelPreference(key: keyof ModelPreferences, value: string | Record<string, string>): void {
+    const preferences = this.getModelPreferences()
+    preferences[key] = value as any
+    this.setModelPreferences(preferences)
+  }
+
+
+
+  // Helper to check if cached models are still valid (24 hours)
+  isCacheValid(cached: CachedModels, serverUrl: string): boolean {
+    const cacheAge = Date.now() - cached.lastUpdated
+    const maxAge = 24 * 60 * 60 * 1000 // 24 hours
+    return cached.serverUrl === serverUrl && cacheAge < maxAge
   }
 
   // Clear all data
