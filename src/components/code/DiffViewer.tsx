@@ -1,3 +1,4 @@
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   ChevronDown,
   ChevronUp,
@@ -6,7 +7,6 @@ import {
   GitBranch,
 } from '@tamagui/lucide-icons'
 import { diffLines } from 'diff'
-import { useEffect, useMemo, useState } from 'react'
 import { ScrollView, StyleSheet } from 'react-native'
 import CodeHighlighter from 'react-native-code-highlighter'
 import { atomOneDarkReasonable } from 'react-syntax-highlighter/dist/esm/styles/hljs'

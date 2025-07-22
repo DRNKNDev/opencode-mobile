@@ -1,3 +1,4 @@
+import React, { useState } from 'react'
 import {
   ArrowUpCircle,
   ChevronDown,
@@ -5,7 +6,6 @@ import {
   ListTodo,
   StopCircle,
 } from '@tamagui/lucide-icons'
-import { useState } from 'react'
 import type { InputProps } from 'tamagui'
 import { Button, Text, XStack, YStack } from 'tamagui'
 import { useModels } from '../../hooks/useModels'

@@ -1,7 +1,7 @@
+import React, { useState } from 'react'
 import { RefreshCw, X } from '@tamagui/lucide-icons'
 import { RadioGroup } from '@tamagui/radio-group'
 import { Sheet } from '@tamagui/sheet'
-import { useState } from 'react'
 import { Button, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
 import { useModels } from '../../hooks/useModels'
 import type { Model } from '../../services/types'

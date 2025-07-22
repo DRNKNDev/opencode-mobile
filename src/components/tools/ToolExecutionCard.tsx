@@ -1,3 +1,4 @@
+import React from 'react'
 import { ChevronDown, ChevronUp, Copy } from '@tamagui/lucide-icons'
 import { Button, Text, XStack, YStack } from 'tamagui'
 import type { ToolExecutionCardProps } from '../../types/tools'
