@@ -241,7 +241,6 @@ export function ModelSelector({
                               <Separator
                                 marginHorizontal="$3"
                                 borderWidth={0.5}
-                                borderColor="$blue6"
                               />
                             )}
                           </YStack>
