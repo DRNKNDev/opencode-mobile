@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useWindowDimensions } from 'react-native'
 import { YStack, Input, Button, Text, Heading, Card } from 'tamagui'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { storage } from '../services/storage'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
+import { useConnectionContext } from '../contexts/ConnectionContext'
 
 export default function ConnectionScreen() {
   const router = useRouter()
@@ -13,29 +14,30 @@ export default function ConnectionScreen() {
   const [serverUrl, setServerUrl] = useState(
     storage.getServerUrl() || 'http://localhost:3000'
   )
-  const [isConnecting, setIsConnecting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { connect, connectionState, isConnecting, error, clearError } = useConnectionContext()
 
   const isTablet = width > 768
 
-  const handleConnect = async () => {
-    setIsConnecting(true)
-    setError(null)
+  // Clear errors when URL changes
+  React.useEffect(() => {
+    if (error) {
+      clearError()
+    }
+  }, [serverUrl, error, clearError])
 
+  const handleConnect = async () => {
     try {
-      // TODO: Implement actual connection test
-      // For now, just validate URL format
+      // Validate URL format first
       new URL(serverUrl)
 
-      // Store the server URL
-      storage.setServerUrl(serverUrl)
+      // Test actual connection to the server
+      await connect(serverUrl)
 
-      // Navigate to sessions screen
+      // Navigate to sessions screen on successful connection
       router.replace('/sessions')
-    } catch {
-      setError('Invalid server URL. Please enter a valid URL.')
-    } finally {
-      setIsConnecting(false)
+    } catch (err) {
+      console.error('Connection failed:', err)
+      // Error handling is now managed by the ConnectionContext
     }
   }
 
@@ -118,6 +120,11 @@ export default function ConnectionScreen() {
             {error && (
               <Text color="$red10" fontSize="$3">
                 {error}
+              </Text>
+            )}
+            {connectionState.status !== 'disconnected' && (
+              <Text color="$color11" fontSize="$3">
+                Status: {connectionState.status}
               </Text>
             )}
           </YStack>

@@ -1,7 +1,7 @@
 import { LegendList, LegendListRef } from '@legendapp/list'
 import { ChevronDown } from '@tamagui/lucide-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
   KeyboardAvoidingView,
@@ -13,9 +13,12 @@ import { Button, Text, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { MessageBubble } from '../components/chat/MessageBubble'
 import { Header } from '../components/ui/Header'
+import { useConnectionContext } from '../contexts/ConnectionContext'
+import { useMessages } from '../hooks/useMessages'
+import { useModels } from '../hooks/useModels'
+import { useSSE } from '../hooks/useSSE'
 import { storage } from '../services/storage'
 import type { Message, Session } from '../services/types'
-import { sampleMessages } from '../test-data/sampleData'
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -25,17 +28,26 @@ export default function ChatScreen() {
   const listRef = useRef<LegendListRef>(null)
   const scrollButtonOpacity = useRef(new Animated.Value(0)).current
   const [session, setSession] = useState<Session | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [isConnected] = useState(true) // TODO: Connect to actual connection state
-  const [currentModel, setCurrentModel] = useState('claude-3.5-sonnet')
   const [currentMode, setCurrentMode] = useState<'build' | 'plan'>('plan') // Start in plan mode to show todos
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isNearBottom, setIsNearBottom] = useState(true)
   const prevMessagesLength = useRef(0)
 
+  // Real hooks integration
+  const { isConnected } = useConnectionContext()
+  const { messages, sendMessage, addMessage, updateMessage, isSending, isLoading } = useMessages(id)
+  const { onMessageUpdate } = useSSE()
+  const { selectedModel, selectModel, availableModels, getProviderIdForModel } = useModels()
+
+  const isStreaming = isSending
+
   const isTablet = width > 768
+
+  // Sort messages by timestamp to ensure chronological order
+  const sortedMessages = useMemo(() => {
+    return messages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+  }, [messages])
 
   const scrollToBottom = useCallback(() => {
     listRef.current?.scrollToEnd({ animated: true })
@@ -44,38 +56,46 @@ export default function ChatScreen() {
   useEffect(() => {
     if (id) {
       loadSession(id)
-      loadMessages(id)
     }
   }, [id])
+
+  // Connect SSE events to message state
+  useEffect(() => {
+    if (!id) return
+
+    const unsubscribe = onMessageUpdate((message: Message) => {
+      if (message.sessionId === id) {
+        // Check if this is a streaming update or a new message
+        if (message.role === 'assistant') {
+          updateMessage(message.id, message)
+        } else {
+          addMessage(message)
+        }
+      }
+    })
+
+    return unsubscribe
+  }, [id, onMessageUpdate, addMessage, updateMessage])
 
   // Auto-scroll when new assistant messages arrive (only if user was already near bottom)
   useEffect(() => {
     // Only auto-scroll if new messages were added
-    if (messages.length > prevMessagesLength.current && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1]
+    if (sortedMessages.length > prevMessagesLength.current && sortedMessages.length > 0) {
+      const lastMessage = sortedMessages[sortedMessages.length - 1]
       // Capture isNearBottom at the time of message addition
       const wasNearBottom = isNearBottom
       if (lastMessage.role === 'assistant' && wasNearBottom) {
         setTimeout(() => scrollToBottom(), 100)
       }
-      prevMessagesLength.current = messages.length
+      prevMessagesLength.current = sortedMessages.length
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, scrollToBottom])
+  }, [sortedMessages, scrollToBottom])
 
   const loadSession = (sessionId: string) => {
     const sessions = storage.getSessions()
     const foundSession = sessions.find(s => s.id === sessionId)
     setSession(foundSession || null)
-  }
-
-  const loadMessages = (sessionId: string) => {
-    // Use sample messages with tool executions and code blocks for testing
-    const messagesWithSessionId = sampleMessages.map(msg => ({
-      ...msg,
-      sessionId,
-    }))
-    setMessages(messagesWithSessionId)
   }
 
   const handleScroll = useCallback(
@@ -108,48 +128,32 @@ export default function ChatScreen() {
     [showScrollButton, scrollButtonOpacity]
   )
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputValue.trim() || !id) return
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      sessionId: id,
-      role: 'user',
-      content: inputValue.trim(),
-      timestamp: new Date(),
-      status: 'sending',
-    }
-
-    setMessages(prev => [...prev, newMessage])
+    const messageContent = inputValue.trim()
     setInputValue('')
-    setIsStreaming(true)
 
     // Auto-scroll when user sends a message
     setTimeout(() => scrollToBottom(), 100)
 
-    // TODO: Send message to Opencode API
-    // For now, simulate response
-    setTimeout(() => {
-      const responseMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        sessionId: id,
-        role: 'assistant',
-        content:
-          'This is a simulated response. In the real implementation, this would come from the Opencode API.',
-        timestamp: new Date(),
-      }
-      setMessages(prev => [...prev, responseMessage])
-      setIsStreaming(false)
-    }, 2000)
+    try {
+      const providerId = getProviderIdForModel(selectedModel) || 'anthropic'
+      await sendMessage(messageContent, selectedModel, providerId, currentMode)
+    } catch (err) {
+      console.error('Failed to send message:', err)
+      // Error handling is managed by useMessages hook
+    }
   }
 
   const handleStopStreaming = () => {
-    setIsStreaming(false)
-    // TODO: Stop the actual streaming request
+    // TODO: Implement stop streaming functionality
+    // This would need to be added to the useMessages hook
+    console.log('Stop streaming requested')
   }
 
   const handleModelSelect = (modelId: string) => {
-    setCurrentModel(modelId)
+    selectModel(modelId)
   }
 
   const renderMessage = ({ item }: { item: Message }) => (
@@ -185,8 +189,23 @@ export default function ChatScreen() {
           alignSelf="center"
           width="100%"
         >
-          {messages.length === 0 ? (
+          {isLoading ? (
             <YStack
+              flex={1}
+              justifyContent="center"
+              alignItems="center"
+              gap="$4"
+              padding="$4"
+            >
+              <Text
+                fontSize={isTablet ? '$5' : '$4'}
+                color="$color11"
+                textAlign="center"
+              >
+                Loading messages...
+              </Text>
+            </YStack>
+           ) : sortedMessages.length === 0 ? (            <YStack
               flex={1}
               justifyContent="center"
               alignItems="center"
@@ -206,13 +225,13 @@ export default function ChatScreen() {
                 textAlign="center"
                 maxWidth={400}
               >
-                Type a message below to begin chatting with {currentModel}
+                Type a message below to begin chatting with {selectedModel}
               </Text>
             </YStack>
           ) : (
             <LegendList
               ref={listRef}
-              data={messages}
+              data={sortedMessages}
               renderItem={renderMessage}
               keyExtractor={item => item.id}
               showsVerticalScrollIndicator={false}
@@ -284,7 +303,7 @@ export default function ChatScreen() {
             currentMode={currentMode}
             onModeSelect={setCurrentMode}
             isStreaming={isStreaming}
-            currentModel={currentModel}
+            currentModel={selectedModel}
             placeholder="Type a message..."
             size="$2"
             borderWidth={0}

@@ -1,82 +1,71 @@
+import React from 'react'
 import { MessageCircle } from '@tamagui/lucide-icons'
 import { useRouter } from 'expo-router'
-import { useEffect, useState } from 'react'
-import { FlatList, useWindowDimensions } from 'react-native'
+import { useState } from 'react'
+import { FlatList, useWindowDimensions, RefreshControl } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { SessionCard } from '../components/session/SessionCard'
 import { Header } from '../components/ui/Header'
-import { storage } from '../services/storage'
+import { useConnectionContext } from '../contexts/ConnectionContext'
+import { useModels } from '../hooks/useModels'
+import { useSessions } from '../hooks/useSessions'
 import type { Session } from '../services/types'
-import { sampleMessages } from '../test-data/sampleData'
 
 export default function SessionListScreen() {
   const router = useRouter()
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
-  const [sessions, setSessions] = useState<Session[]>([])
   const [newSessionInput, setNewSessionInput] = useState('')
-  const [isConnected] = useState(true) // TODO: Connect to actual connection state
-  const [currentModel, setCurrentModel] = useState('claude-3.5-sonnet')
   const [currentMode, setCurrentMode] = useState<'build' | 'plan'>('build')
+
+  // Use our custom hooks
+  const { isConnected } = useConnectionContext()
+  const { selectedModel, selectModel } = useModels()
+  const {
+    sessions,
+    isLoading,
+    isRefreshing,
+    isCreating,
+    isDeleting,
+    createSession,
+    deleteSession,
+    selectSession,
+    refreshSessions,
+    error: sessionError,
+  } = useSessions()
 
   const isTablet = width > 768
 
-  useEffect(() => {
-    loadSessions()
-  }, [])
-
-  const loadSessions = () => {
-    const storedSessions = storage.getSessions()
-
-    // Add a test session with sample data if no sessions exist
-    if (storedSessions.length === 0) {
-      const testSession: Session = {
-        id: 'test-session-1',
-        title: 'TypeScript Helper Functions',
-        createdAt: new Date(Date.now() - 240000), // 4 minutes ago
-        updatedAt: new Date(Date.now() - 240000),
-        messageCount: sampleMessages.length,
-        status: 'active',
-        modelName: 'claude-3.5-sonnet',
-        lastMessage:
-          sampleMessages[sampleMessages.length - 1].content.substring(0, 100) +
-          '...',
-      }
-
-      storage.addSession(testSession)
-      setSessions([testSession])
-    } else {
-      setSessions(storedSessions)
-    }
-  }
-
-  const createNewSession = () => {
+  const createNewSession = async () => {
     if (!newSessionInput.trim()) return
 
-    const newSession: Session = {
-      id: Date.now().toString(),
-      title: newSessionInput.trim(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      messageCount: 0,
-      status: 'idle',
-      modelName: currentModel,
-      lastMessage: 'New session created',
+    try {
+      const newSession = await createSession()
+      setNewSessionInput('')
+      
+      // Navigate to the new session
+      router.push(`/chat/${newSession.id}`)
+    } catch (error) {
+      console.error('Failed to create session:', error)
+      // TODO: Show error toast
     }
-
-    storage.addSession(newSession)
-    storage.setCurrentSessionId(newSession.id)
-    setNewSessionInput('')
-    loadSessions()
-
-    router.push(`/chat/${newSession.id}`)
   }
 
   const openSession = (session: Session) => {
-    storage.setCurrentSessionId(session.id)
+    selectSession(session.id)
     router.push(`/chat/${session.id}`)
+  }
+
+  const handleDeleteSession = async (session: Session) => {
+    try {
+      await deleteSession(session.id)
+      // TODO: Show success toast
+    } catch (error) {
+      console.error('Failed to delete session:', error)
+      // TODO: Show error toast
+    }
   }
 
   const shareSession = (session: Session) => {
@@ -84,11 +73,25 @@ export default function SessionListScreen() {
     console.log('Sharing session:', session.id)
   }
 
+  const handleModelSelect = (modelId: string) => {
+    selectModel(modelId)
+  }
+
+  const handleRefresh = async () => {
+    try {
+      await refreshSessions()
+    } catch (error) {
+      console.error('Failed to refresh sessions:', error)
+    }
+  }
+
   const renderSession = ({ item }: { item: Session }) => (
     <SessionCard
       session={item}
       onPress={() => openSession(item)}
       onShare={() => shareSession(item)}
+      onDelete={() => handleDeleteSession(item)}
+      isDeleting={isDeleting}
     />
   )
 
@@ -110,7 +113,7 @@ export default function SessionListScreen() {
           color="$color11"
           textAlign="center"
         >
-          Start your first session in {currentMode} mode with {currentModel}
+          Start your first session in {currentMode} mode with {selectedModel}
         </Text>
       </YStack>
     </YStack>
@@ -141,13 +144,13 @@ export default function SessionListScreen() {
           onChange={setNewSessionInput}
           onSubmit={createNewSession}
           onStop={() => {}}
-          onModelSelect={setCurrentModel}
+          onModelSelect={handleModelSelect}
           currentMode={currentMode}
           onModeSelect={setCurrentMode}
           placeholder="What can I help you with?"
-          currentModel={currentModel}
-          disabled={false}
-          isStreaming={false}
+          currentModel={selectedModel}
+          disabled={!isConnected || isCreating}
+          isStreaming={isCreating}
           size="$4"
         />
       </YStack>
@@ -169,6 +172,13 @@ export default function SessionListScreen() {
             renderItem={renderSession}
             keyExtractor={item => item.id}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={() => refreshSessions(true)}
+                tintColor="$color11"
+              />
+            }
             contentContainerStyle={{
               paddingBottom: 20,
               maxWidth: isTablet ? 800 : undefined,
