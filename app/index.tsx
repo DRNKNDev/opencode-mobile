@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'expo-router'
 import { LoadingScreen } from '../src/components/ui/LoadingScreen'
 import { storage } from '../src/services/storage'
