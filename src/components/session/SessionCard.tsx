@@ -1,6 +1,6 @@
 import { ChevronRight, Share2, Trash2 } from '@tamagui/lucide-icons'
 import React from 'react'
-import { Button, Card, Circle, Text, XStack, YStack } from 'tamagui'
+import { Button, Card, Text, XStack, YStack } from 'tamagui'
 import type { Session } from '../../services/types'
 
 export interface SessionCardProps {
@@ -18,45 +18,24 @@ export function SessionCard({
   onDelete,
   isDeleting,
 }: SessionCardProps) {
-  const formatDate = (date: Date) => {
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp) // Timestamp already in milliseconds
     const now = new Date()
-    const diffInHours = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-    )
+    const diffInMs = now.getTime() - date.getTime()
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60))
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
 
-    if (diffInHours < 1) return 'Just now'
+    if (diffInMinutes < 1) return 'Just now'
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
     if (diffInHours < 24) return `${diffInHours}h ago`
     if (diffInHours < 48) return 'Yesterday'
     return date.toLocaleDateString()
   }
 
-  // Determine status color based on session state
-  const getStatusColor = () => {
-    // TODO: Connect to actual Opencode SDK session status
-    if (session.status === 'active') return '$green10'
-    if (session.status === 'error') return '$red10'
-    if (session.status === 'idle') return '$yellow10'
-    return '$color11' // default/completed
-  }
-
-  // Get model display name
-  const getModelName = () => {
-    // TODO: Get from last AssistantMessage.modelID via SDK
-    const modelMap: Record<string, string> = {
-      'claude-3.5-sonnet': 'Claude 3.5 Sonnet',
-      'claude-3.5-haiku': 'Claude 3.5 Haiku',
-      'gpt-4o': 'GPT-4o',
-      'gpt-4o-mini': 'GPT-4o mini',
-    }
-    return session.modelName
-      ? modelMap[session.modelName] || session.modelName
-      : 'Claude 3.5 Sonnet'
-  }
-
   // Get last message preview
   const getLastMessagePreview = () => {
-    // TODO: Get from last TextPart.text via SDK SessionMessagesResponse
-    return session.lastMessage || 'No messages yet'
+    // SDK doesn't provide lastMessage directly
+    return 'Click to view messages'
   }
 
   return (
@@ -76,9 +55,6 @@ export function SessionCard({
       animation="quick"
     >
       <XStack alignItems="center" gap="$3">
-        {/* Status Dot */}
-        <Circle size={12} backgroundColor={getStatusColor()} />
-
         {/* Main Content */}
         <YStack flex={1} gap="$1">
           {/* Title */}
@@ -91,13 +67,10 @@ export function SessionCard({
             {getLastMessagePreview()}
           </Text>
 
-          {/* Model Name and Updated Time */}
+          {/* Updated Time */}
           <XStack alignItems="center" gap="$2" marginTop="$1">
-            <Text color="$color11" fontSize="$2" fontWeight="500">
-              {getModelName()}
-            </Text>
             <Text color="$color11" fontSize="$2">
-              • {formatDate(session.updatedAt)}
+              {formatDate(session.time.updated)}
             </Text>
           </XStack>
         </YStack>
