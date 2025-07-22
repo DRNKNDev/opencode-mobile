@@ -7,6 +7,7 @@ export interface ConnectionState {
   serverUrl: string | null
   error: string | null
   models: Model[]
+  defaultModels: Record<string, string>
   lastConnected: Date | null
   retryCount: number
 }
@@ -17,6 +18,7 @@ class ConnectionService {
     serverUrl: null,
     error: null,
     models: [],
+    defaultModels: {},
     lastConnected: null,
     retryCount: 0,
   }
@@ -82,7 +84,7 @@ class ConnectionService {
       }
 
       // Fetch models
-      const models = await openCodeService.getModels()
+      const modelsResponse = await openCodeService.getModels()
 
       // Save connection details
       storage.setServerUrl(serverUrl)
@@ -91,7 +93,8 @@ class ConnectionService {
         status: 'connected',
         serverUrl,
         error: null,
-        models,
+        models: modelsResponse.models,
+        defaultModels: modelsResponse.defaultModels,
         lastConnected: new Date(),
         retryCount: 0,
       })
@@ -127,6 +130,7 @@ class ConnectionService {
       serverUrl: null,
       error: null,
       models: [],
+      defaultModels: {},
       lastConnected: null,
       retryCount: 0,
     })
@@ -248,6 +252,11 @@ class ConnectionService {
     return this.state.models
   }
 
+  // Get default models mapping
+  getDefaultModels(): Record<string, string> {
+    return this.state.defaultModels
+  }
+
   // Refresh models
   async refreshModels(): Promise<void> {
     if (!this.isReady()) {
@@ -255,8 +264,11 @@ class ConnectionService {
     }
 
     try {
-      const models = await openCodeService.getModels()
-      this.setState({ models })
+      const modelsResponse = await openCodeService.getModels()
+      this.setState({
+        models: modelsResponse.models,
+        defaultModels: modelsResponse.defaultModels,
+      })
     } catch (error) {
       console.error('Failed to refresh models:', error)
       throw error

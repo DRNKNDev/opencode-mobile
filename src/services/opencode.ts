@@ -74,7 +74,10 @@ class OpenCodeService {
     }
   }
 
-  async getModels(): Promise<Model[]> {
+  async getModels(): Promise<{
+    models: Model[]
+    defaultModels: Record<string, string>
+  }> {
     if (!this.client) {
       throw new Error('Client not initialized')
     }
@@ -91,12 +94,16 @@ class OpenCodeService {
             id: modelId,
             name: model.name,
             provider: provider.name,
+            providerId: provider.id,
             description: `${model.name} - Context: ${model.limit.context}, Output: ${model.limit.output}`,
           })
         })
       })
 
-      return models
+      return {
+        models,
+        defaultModels: response.default || {},
+      }
     } catch (error) {
       console.error('Failed to fetch models:', error)
       throw error

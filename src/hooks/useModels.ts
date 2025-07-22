@@ -8,6 +8,7 @@ export interface UseModelsReturn {
   availableModels: Model[]
   selectedModel: string
   modelPreferences: ModelPreferences
+  defaultModels: Record<string, string>
   isLoading: boolean
   error: string | null
   selectModel: (modelId: string) => void
@@ -20,6 +21,7 @@ export interface UseModelsReturn {
 export function useModels(): UseModelsReturn {
   const {
     models: connectionModels,
+    defaultModels: connectionDefaultModels,
     isConnected,
     refreshModels: refreshConnectionModels,
   } = useConnectionContext()
@@ -101,7 +103,7 @@ export function useModels(): UseModelsReturn {
 
   // Simplified default selection logic
   const getEffectiveDefaultModel = useCallback(
-    (availableModels: Model[]) => {
+    (availableModels: Model[], apiDefaults: Record<string, string>) => {
       if (availableModels.length === 0) return null
 
       // Priority 1: Last used model
@@ -112,15 +114,30 @@ export function useModels(): UseModelsReturn {
         if (lastUsed) return lastUsed.id
       }
 
-      // Priority 2: Default model (from API or user setting)
+      // Priority 2: User-set default model
       if (modelPreferences.defaultModel) {
-        const defaultModel = availableModels.find(
+        const userDefault = availableModels.find(
           m => m.id === modelPreferences.defaultModel
         )
-        if (defaultModel) return defaultModel.id
+        if (userDefault) return userDefault.id
       }
 
-      // Priority 3: First available model
+      // Priority 3: API default model for the first available provider
+      if (Object.keys(apiDefaults).length > 0) {
+        // Find the first provider that has models available
+        for (const model of availableModels) {
+          const providerId = model.providerId || model.provider.toLowerCase()
+          const apiDefaultModelId = apiDefaults[providerId]
+          if (apiDefaultModelId) {
+            const apiDefaultModel = availableModels.find(
+              m => m.id === apiDefaultModelId
+            )
+            if (apiDefaultModel) return apiDefaultModel.id
+          }
+        }
+      }
+
+      // Priority 4: First available model
       return availableModels[0].id
     },
     [modelPreferences]
@@ -143,14 +160,23 @@ export function useModels(): UseModelsReturn {
         !storage.getSelectedModel() &&
         connectionModels.length > 0
       ) {
-        const defaultModel = getEffectiveDefaultModel(connectionModels)
+        const defaultModel = getEffectiveDefaultModel(
+          connectionModels,
+          connectionDefaultModels
+        )
         if (defaultModel) {
           setSelectedModel(defaultModel)
           storage.setSelectedModel(defaultModel)
         }
       }
     }
-  }, [isConnected, connectionModels, isInitialized, getEffectiveDefaultModel])
+  }, [
+    isConnected,
+    connectionModels,
+    connectionDefaultModels,
+    isInitialized,
+    getEffectiveDefaultModel,
+  ])
 
   const selectModel = useCallback(
     (modelId: string) => {
@@ -224,6 +250,7 @@ export function useModels(): UseModelsReturn {
     availableModels,
     selectedModel,
     modelPreferences,
+    defaultModels: connectionDefaultModels,
     isLoading,
     error,
     selectModel,

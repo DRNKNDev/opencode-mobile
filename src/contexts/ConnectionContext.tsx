@@ -23,6 +23,7 @@ export interface ConnectionContextValue {
 
   // Models
   models: Model[]
+  defaultModels: Record<string, string>
   refreshModels: () => Promise<void>
 
   // Error handling
@@ -135,6 +136,7 @@ export function ConnectionProvider({ children }: ConnectionProviderProps) {
 
     // Models
     models: connectionState.models,
+    defaultModels: connectionState.defaultModels,
     refreshModels,
 
     // Error handling
