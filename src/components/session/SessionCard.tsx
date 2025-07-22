@@ -1,4 +1,5 @@
-import { ChevronRight, Share2 } from '@tamagui/lucide-icons'
+import { ChevronRight, Share2, Trash2 } from '@tamagui/lucide-icons'
+import React from 'react'
 import { Button, Card, Circle, Text, XStack, YStack } from 'tamagui'
 import type { Session } from '../../services/types'
 
@@ -6,9 +7,11 @@ export interface SessionCardProps {
   session: Session
   onPress: () => void
   onShare?: () => void
+  onDelete?: () => void
+  isDeleting?: boolean
 }
 
-export function SessionCard({ session, onPress, onShare }: SessionCardProps) {
+export function SessionCard({ session, onPress, onShare, onDelete, isDeleting }: SessionCardProps) {
   const formatDate = (date: Date) => {
     const now = new Date()
     const diffInHours = Math.floor(
@@ -95,6 +98,21 @@ export function SessionCard({ session, onPress, onShare }: SessionCardProps) {
 
         {/* Right Side Actions */}
         <XStack alignItems="center" gap="$2">
+          {/* Delete Button */}
+          {onDelete && (
+            <Button
+              size="$3"
+              chromeless
+              icon={Trash2}
+              disabled={isDeleting}
+              onPress={e => {
+                e.stopPropagation()
+                onDelete()
+              }}
+              theme="red"
+            />
+          )}
+
           {/* Share Button */}
           {onShare && (
             <Button

@@ -16,6 +16,15 @@ export function ToolExecutionCard({
   onCopy,
   maxHeight = 700,
 }: ToolExecutionCardProps) {
+  // DEBUG: Log what data ToolExecutionCard receives
+  console.log('🎯 ToolExecutionCard received:', {
+    toolId: tool.id,
+    toolName: tool.tool,
+    toolType: tool.type,
+    toolState: tool.state,
+    isExpanded,
+    fullTool: tool
+  })
   const getStatusColor = () => {
     switch (tool.state.status) {
       case 'completed':

@@ -8,6 +8,7 @@ import {
 import { useState } from 'react'
 import type { InputProps } from 'tamagui'
 import { Button, Text, XStack, YStack } from 'tamagui'
+import { useModels } from '../../hooks/useModels'
 import { ModelSelector } from '../modals/ModelSelector'
 import { ModeSelector } from '../modals/ModeSelector'
 import { TextArea } from '../ui/TextArea'
@@ -42,16 +43,25 @@ export function InputBar({
   disabled = false,
   placeholder = 'Type a message...',
   isStreaming = false,
-  currentModel = 'claude-3.5-sonnet',
+  currentModel,
   size = '$2',
   borderWidth,
   focusStyle,
   paddingHorizontal,
   paddingVertical,
 }: InputBarProps) {
+  const { availableModels, selectedModel } = useModels()
   const [showModelSelector, setShowModelSelector] = useState(false)
   const [showModeSelector, setShowModeSelector] = useState(false)
   const canSend = value.trim().length > 0 && !disabled
+
+  // Use currentModel prop if provided, otherwise fall back to selectedModel from hook
+  const effectiveModel = currentModel || selectedModel || 'claude-3.5-sonnet'
+
+  const getModelName = (modelId: string): string => {
+    const model = availableModels.find(m => m.id === modelId)
+    return model?.name || modelId
+  }
 
   const handleSubmit = () => {
     if (canSend && !isStreaming) {
@@ -114,7 +124,7 @@ export function InputBar({
             aria-label="Select AI model"
           >
             <Text fontSize="$3" color="$color11" numberOfLines={1}>
-              {currentModel}
+              {getModelName(effectiveModel)}
             </Text>
           </Button>
         </XStack>
@@ -139,7 +149,7 @@ export function InputBar({
       <ModelSelector
         open={showModelSelector}
         onOpenChange={setShowModelSelector}
-        selectedModel={currentModel}
+        selectedModel={effectiveModel}
         onModelSelect={modelId => {
           onModelSelect?.(modelId)
           setShowModelSelector(false)

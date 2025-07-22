@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { Card, Text, XStack, YStack } from 'tamagui'
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 import type { Message, MessagePart } from '../../services/types'
 import type { ToolPart } from '../../types/tools'
+import { debug } from '../../utils/debug'
 import { CodeBlock } from '../code/CodeBlock'
 import { ToolExecutionCard } from '../tools/ToolExecutionCard'
 
@@ -32,6 +33,16 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   }
 
   const renderMessagePart = (part: MessagePart, index: number) => {
+    debug.log('MessageBubble renderMessagePart:', {
+      index,
+      messageId: message.id,
+      partType: part.type,
+      partContent: part.content?.substring(0, 100) + '...',
+      toolName: part.toolName,
+      toolResult: part.toolResult,
+      fullPart: part
+    })
+
     switch (part.type) {
       case 'code':
         return (
@@ -43,6 +54,12 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           />
         )
       case 'tool_execution':
+        debug.log('Tool execution part detected:', {
+          toolName: part.toolName,
+          hasToolResult: !!part.toolResult,
+          toolResult: part.toolResult
+        })
+        
         if (part.toolResult) {
           const toolPart: ToolPart = {
             id: `${message.id}-tool-${index}`,
@@ -56,6 +73,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             },
           }
 
+          debug.log('Constructed toolPart for ToolExecutionCard:', toolPart)
+
           return (
             <ToolExecutionCard
               key={index}
@@ -65,99 +84,142 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               onCopy={copyToClipboard}
             />
           )
+        } else {
+          debug.warn('Tool execution part has no toolResult, returning null')
         }
         return null
+      case 'text':
       default:
         return (
-          <Text
+          <Card
             key={index}
-            color={isUser ? 'white' : '$color'}
-            fontSize="$4"
-            lineHeight="$4"
+            padding="$3"
+            backgroundColor={isUser ? '$blue10' : 'transparent'}
+            borderRadius="$2"
+            maxWidth="100%"
           >
-            {part.content}
-          </Text>
+            <Text
+              color={isUser ? 'white' : '$color'}
+              fontSize="$4"
+              lineHeight="$4"
+            >
+              {part.content}
+            </Text>
+          </Card>
         )
     }
   }
 
-  // Separate tool executions from other content
-  const toolParts =
-    message.parts?.filter(part => part.type === 'tool_execution') || []
-  const nonToolParts =
-    message.parts?.filter(part => part.type !== 'tool_execution') || []
+  const renderPartWithLayout = (part: MessagePart, index: number) => {
+    if (part.type === 'tool_execution') {
+      // Tool executions render full width
+      return (
+        <YStack key={`${message.id}-part-${index}`} paddingHorizontal="$4" marginBottom="$2">
+          {renderMessagePart(part, index)}
+        </YStack>
+      )
+    } else {
+      // Text/code parts render with user/assistant alignment
+      return (
+        <XStack
+          key={`${message.id}-part-${index}`}
+          justifyContent={isUser ? 'flex-end' : 'flex-start'}
+          paddingHorizontal="$4"
+          marginBottom="$2"
+        >
+          <YStack
+            maxWidth={isUser ? '80%' : '100%'}
+            alignItems={isUser ? 'flex-end' : 'flex-start'}
+          >
+            {renderMessagePart(part, index)}
+          </YStack>
+        </XStack>
+      )
+    }
+  }
 
   return (
-    <YStack marginBottom="$3" gap="$2">
-      {/* Regular message content */}
-      <XStack
-        justifyContent={isUser ? 'flex-end' : 'flex-start'}
-        paddingHorizontal="$4"
-      >
-        <YStack
-          maxWidth={isUser ? '80%' : '100%'}
-          alignItems={isUser ? 'flex-end' : 'flex-start'}
-        >
-          <YStack gap="$2" maxWidth="100%">
-            {nonToolParts.length > 0 ? (
-              <YStack>
-                {nonToolParts.map((part, index) =>
-                  renderMessagePart(part, index)
-                )}
-                <XStack
-                  justifyContent={isUser ? 'flex-end' : 'flex-start'}
-                  marginTop="$1"
+    <YStack marginBottom="$3" gap="$1">
+      {message.parts && message.parts.length > 0 ? (
+        <>
+          {/* Render all parts in original sequential order */}
+          {message.parts.map((part, index) => renderPartWithLayout(part, index))}
+          
+          {/* Timestamp at the end */}
+          <XStack
+            justifyContent={isUser ? 'flex-end' : 'flex-start'}
+            paddingHorizontal="$4"
+            marginTop="$1"
+          >
+            <XStack alignItems="center" gap="$1">
+              <Text
+                fontSize="$1"
+                color={isUser ? 'rgba(255,255,255,0.7)' : '$color10'}
+                opacity={0.8}
+              >
+                {formatTime(message.timestamp)}
+              </Text>
+              {message.status === 'sending' && (
+                <Text
+                  fontSize="$1"
+                  color={isUser ? 'rgba(255,255,255,0.7)' : '$color10'}
+                  opacity={0.8}
                 >
-                  <Text
-                    fontSize="$1"
-                    color={isUser ? 'rgba(255,255,255,0.7)' : '$color10'}
-                    opacity={0.8}
-                  >
-                    {formatTime(message.timestamp)}
-                    {message.status === 'sending' ? ' • Sending...' : ''}
-                    {message.status === 'error' ? ' • Failed' : ''}
-                  </Text>
-                </XStack>
-              </YStack>
-            ) : !message.parts || message.parts.length === 0 ? (
-              <Card
-                padding="$3"
-                backgroundColor={isUser ? '$blue10' : 'transparent'}
-                borderRadius="$2"
-                maxWidth="100%"
+                  • Sending...
+                </Text>
+              )}
+              {message.status === 'error' && (
+                <Text
+                  fontSize="$1"
+                  color="$red10"
+                  opacity={0.9}
+                >
+                  • Failed
+                </Text>
+              )}
+            </XStack>
+          </XStack>
+        </>
+      ) : (
+        /* Fallback for messages without parts */
+        <XStack
+          justifyContent={isUser ? 'flex-end' : 'flex-start'}
+          paddingHorizontal="$4"
+        >
+          <YStack
+            maxWidth={isUser ? '80%' : '100%'}
+            alignItems={isUser ? 'flex-end' : 'flex-start'}
+          >
+            <Card
+              padding="$3"
+              backgroundColor={isUser ? '$blue10' : 'transparent'}
+              borderRadius="$2"
+              maxWidth="100%"
+            >
+              <Text
+                color={isUser ? 'white' : '$color'}
+                fontSize="$4"
+                lineHeight="$4"
+              >
+                {message.content}
+              </Text>
+              <XStack
+                justifyContent={isUser ? 'flex-end' : 'flex-start'}
+                marginTop="$1"
               >
                 <Text
-                  color={isUser ? 'white' : '$color'}
-                  fontSize="$4"
-                  lineHeight="$4"
+                  fontSize="$1"
+                  color={isUser ? 'rgba(255,255,255,0.7)' : '$color10'}
+                  opacity={0.8}
                 >
-                  {message.content}
+                  {formatTime(message.timestamp)}
+                  {message.status === 'sending' ? ' • Sending...' : ''}
+                  {message.status === 'error' ? ' • Failed' : ''}
                 </Text>
-                <XStack
-                  justifyContent={isUser ? 'flex-end' : 'flex-start'}
-                  marginTop="$1"
-                >
-                  <Text
-                    fontSize="$1"
-                    color={isUser ? 'rgba(255,255,255,0.7)' : '$color10'}
-                    opacity={0.8}
-                  >
-                    {formatTime(message.timestamp)}
-                    {message.status === 'sending' ? ' • Sending...' : ''}
-                    {message.status === 'error' ? ' • Failed' : ''}
-                  </Text>
-                </XStack>
-              </Card>
-            ) : null}
+              </XStack>
+            </Card>
           </YStack>
-        </YStack>
-      </XStack>
-
-      {/* Tool execution cards - full width */}
-      {toolParts.length > 0 && (
-        <YStack paddingHorizontal="$4" gap="$2">
-          {toolParts.map((part, index) => renderMessagePart(part, index))}
-        </YStack>
+        </XStack>
       )}
     </YStack>
   )
