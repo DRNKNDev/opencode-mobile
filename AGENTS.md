@@ -24,6 +24,7 @@
 - **State**: Use React hooks (useState, useEffect) with proper TypeScript typing
 - **UI**: Use Tamagui components (Card, Text, XStack, YStack) for consistent styling
 - **Error Handling**: Use optional chaining, proper error boundaries, status fields in interfaces
+- **Debug Logging**: Use `@/src/utils/debug.ts` for all debug logging instead of console.log/warn/error
 
 ## Commit Message Guidelines
 
