@@ -73,9 +73,11 @@ export function ModelSelector({
   const ModelItem = ({
     model,
     showProvider = false,
+    section = 'provider',
   }: {
     model: Model
     showProvider?: boolean
+    section?: 'default' | 'provider'
   }) => (
     <XStack
       alignItems="center"
@@ -92,7 +94,7 @@ export function ModelSelector({
     >
       <RadioGroup.Item
         value={model.id}
-        id={`${instanceId}-${model.id}`}
+        id={`${instanceId}-${section}-${model.id}`}
         size="$4"
       >
         <RadioGroup.Indicator />
@@ -236,7 +238,11 @@ export function ModelSelector({
                       <YStack gap="$1" paddingRight="$2">
                         {defaultModelsList.map((model, index) => (
                           <YStack key={`recommended-${model.id}`}>
-                            <ModelItem model={model} showProvider={true} />
+                            <ModelItem
+                              model={model}
+                              showProvider={true}
+                              section="default"
+                            />
                             {index < defaultModelsList.length - 1 && (
                               <Separator
                                 marginHorizontal="$3"
@@ -298,7 +304,10 @@ export function ModelSelector({
                               <YStack gap="$1" paddingRight="$2">
                                 {providerModels.map((model, index) => (
                                   <YStack key={model.id}>
-                                    <ModelItem model={model} />
+                                    <ModelItem
+                                      model={model}
+                                      section="provider"
+                                    />
                                     {index < providerModels.length - 1 && (
                                       <Separator
                                         marginHorizontal="$3"
