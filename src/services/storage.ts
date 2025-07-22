@@ -29,8 +29,8 @@ class StorageService {
       const sessions = JSON.parse(sessionsJson)
       return sessions.map((session: any) => ({
         ...session,
-        createdAt: new Date(session.createdAt),
-        updatedAt: new Date(session.updatedAt),
+        // SDK sessions already have correct time structure
+        time: session.time || { created: 0, updated: 0 },
       }))
     } catch {
       return []
@@ -59,7 +59,10 @@ class StorageService {
       sessions[index] = {
         ...sessions[index],
         ...updates,
-        updatedAt: new Date(),
+        time: {
+          ...sessions[index].time,
+          updated: Math.floor(Date.now() / 1000), // Unix timestamp
+        },
       }
       this.setSessions(sessions)
     }

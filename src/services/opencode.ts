@@ -118,16 +118,15 @@ class OpenCodeService {
     try {
       const response = await this.client.session.list()
 
-      // Transform response to our Session interface
+      // Return SDK Session structure as-is
       return response.map(session => ({
         id: session.id,
+        time: session.time,
         title: session.title || 'Untitled Session',
-        createdAt: new Date(session.time.created * 1000), // Convert from Unix timestamp
-        updatedAt: new Date(session.time.updated * 1000), // Convert from Unix timestamp
-        messageCount: 0, // We'll need to get this separately if needed
-        status: 'idle' as const,
-        modelName: undefined,
-        lastMessage: undefined,
+        version: session.version,
+        parentID: session.parentID,
+        revert: session.revert,
+        share: session.share,
       }))
     } catch (error) {
       console.error('Failed to fetch sessions:', error)
@@ -145,12 +144,12 @@ class OpenCodeService {
 
       return {
         id: response.id,
+        time: response.time,
         title: response.title || 'Untitled Session',
-        createdAt: new Date(response.time.created * 1000),
-        updatedAt: new Date(response.time.updated * 1000),
-        messageCount: 0,
-        status: 'active',
-        modelName: undefined,
+        version: response.version,
+        parentID: response.parentID,
+        revert: response.revert,
+        share: response.share,
       }
     } catch (error) {
       console.error('Failed to create session:', error)
