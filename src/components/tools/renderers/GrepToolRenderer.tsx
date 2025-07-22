@@ -1,5 +1,6 @@
-import { YStack, XStack, Text, Button, ScrollView } from 'tamagui'
+import React from 'react'
 import { Search, Copy, FileText } from '@tamagui/lucide-icons'
+import { YStack, XStack, Text, Button, ScrollView } from 'tamagui'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
 import type { ToolPartRendererProps } from '../../../types/tools'
 

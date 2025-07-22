@@ -1,5 +1,6 @@
-import { YStack, XStack, Text, Button } from 'tamagui'
+import React from 'react'
 import { Terminal, Copy } from '@tamagui/lucide-icons'
+import { YStack, XStack, Text, Button } from 'tamagui'
 import { CodeBlock } from '../../code/CodeBlock'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
 import type { ToolPartRendererProps } from '../../../types/tools'

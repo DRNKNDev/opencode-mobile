@@ -1,3 +1,4 @@
+import React from 'react'
 import { Copy, FileEdit } from '@tamagui/lucide-icons'
 import { Button, Text, XStack, YStack } from 'tamagui'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'

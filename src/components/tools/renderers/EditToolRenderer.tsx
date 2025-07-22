@@ -1,6 +1,6 @@
+import React, { useState } from 'react'
 import { Copy, FileEdit, GitBranch, Eye } from '@tamagui/lucide-icons'
 import { Button, Text, XStack, YStack } from 'tamagui'
-import { useState } from 'react'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
 import type { ToolPartRendererProps } from '../../../types/tools'
 import { detectLanguage } from '../../../utils/languageDetection'
