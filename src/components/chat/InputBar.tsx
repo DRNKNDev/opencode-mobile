@@ -1,4 +1,3 @@
-import React, { useState } from 'react'
 import {
   ArrowUpCircle,
   ChevronDown,
@@ -6,6 +5,7 @@ import {
   ListTodo,
   StopCircle,
 } from '@tamagui/lucide-icons'
+import React, { useState } from 'react'
 import type { InputProps } from 'tamagui'
 import { Button, Text, XStack, YStack } from 'tamagui'
 import { useModels } from '../../hooks/useModels'
@@ -56,7 +56,7 @@ export function InputBar({
   const canSend = value.trim().length > 0 && !disabled
 
   // Use currentModel prop if provided, otherwise fall back to selectedModel from hook
-  const effectiveModel = currentModel || selectedModel || 'claude-3.5-sonnet'
+  const effectiveModel = currentModel || selectedModel
 
   const getModelName = (modelId: string): string => {
     const model = availableModels.find(m => m.id === modelId)
