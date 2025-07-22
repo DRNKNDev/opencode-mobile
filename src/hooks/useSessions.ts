@@ -284,8 +284,8 @@ function mergeSessions(
     sessionMap.set(session.id, session)
   })
 
-  // Convert back to array and sort by updatedAt (newest first)
+  // Convert back to array and sort by time.updated (newest first)
   return Array.from(sessionMap.values()).sort(
-    (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
+    (a, b) => b.time.updated - a.time.updated
   )
 }

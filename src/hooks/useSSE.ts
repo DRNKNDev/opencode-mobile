@@ -293,10 +293,11 @@ function transformMessageFromSSE(messageInfo: any): Message {
 function transformSessionFromSSE(sessionInfo: any): Session {
   return {
     id: sessionInfo.id,
+    time: sessionInfo.time,
     title: sessionInfo.title || 'Untitled Session',
-    createdAt: new Date(sessionInfo.time.created * 1000),
-    updatedAt: new Date(sessionInfo.time.updated * 1000),
-    messageCount: 0, // This would need to be calculated
-    status: 'active',
+    version: sessionInfo.version,
+    parentID: sessionInfo.parentID,
+    revert: sessionInfo.revert,
+    share: sessionInfo.share,
   }
 }
