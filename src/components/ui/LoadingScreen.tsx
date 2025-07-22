@@ -1,5 +1,6 @@
-import { YStack, Text, Spinner } from 'tamagui'
+import React from 'react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { YStack, Text, Spinner } from 'tamagui'
 
 export interface LoadingScreenProps {
   message?: string

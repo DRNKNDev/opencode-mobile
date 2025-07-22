@@ -1,5 +1,5 @@
+import React, { useEffect, useState } from 'react'
 import { YStack, XStack } from 'tamagui'
-import { useEffect, useState } from 'react'
 
 export interface SkeletonLoaderProps {
   width?: number | string

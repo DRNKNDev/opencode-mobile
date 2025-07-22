@@ -1,3 +1,4 @@
+import React from 'react'
 import { Circle } from 'tamagui'
 
 export interface ConnectionStatusProps {

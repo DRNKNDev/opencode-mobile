@@ -1,5 +1,5 @@
+import React, { ReactNode } from 'react'
 import { YStack, Text } from 'tamagui'
-import { ReactNode } from 'react'
 
 export interface EmptyStateProps {
   icon: ReactNode

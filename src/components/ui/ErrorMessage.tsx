@@ -1,5 +1,6 @@
-import { YStack, Text, Button } from 'tamagui'
+import React from 'react'
 import { AlertCircle, RefreshCw } from '@tamagui/lucide-icons'
+import { YStack, Text, Button } from 'tamagui'
 
 export interface ErrorMessageProps {
   title?: string

@@ -1,5 +1,6 @@
-import { XStack, Heading, Button } from 'tamagui'
+import React from 'react'
 import { useWindowDimensions } from 'react-native'
+import { XStack, Heading, Button } from 'tamagui'
 import { ArrowLeft } from '@tamagui/lucide-icons'
 import { ConnectionStatus } from './ConnectionStatus'
 

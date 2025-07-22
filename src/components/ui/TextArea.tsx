@@ -1,4 +1,4 @@
-import { forwardRef } from 'react'
+import React, { forwardRef } from 'react'
 import type { InputProps } from 'tamagui'
 import { Input, styled } from 'tamagui'
 

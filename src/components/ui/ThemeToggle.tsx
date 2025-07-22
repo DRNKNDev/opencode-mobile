@@ -1,3 +1,4 @@
+import React from 'react'
 import { Button, Text } from 'tamagui'
 import { Moon, Sun } from '@tamagui/lucide-icons'
 import { useThemeContext } from '../../contexts/ThemeContext'
