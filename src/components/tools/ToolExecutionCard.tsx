@@ -24,7 +24,7 @@ export function ToolExecutionCard({
     toolType: tool.type,
     toolState: tool.state,
     isExpanded,
-    fullTool: tool
+    fullTool: tool,
   })
   const getStatusColor = () => {
     switch (tool.state.status) {

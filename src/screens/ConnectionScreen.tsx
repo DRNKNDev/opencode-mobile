@@ -14,7 +14,8 @@ export default function ConnectionScreen() {
   const [serverUrl, setServerUrl] = useState(
     storage.getServerUrl() || 'http://localhost:3000'
   )
-  const { connect, connectionState, isConnecting, error, clearError } = useConnectionContext()
+  const { connect, connectionState, isConnecting, error, clearError } =
+    useConnectionContext()
 
   const isTablet = width > 768
 

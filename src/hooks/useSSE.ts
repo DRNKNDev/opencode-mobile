@@ -7,16 +7,16 @@ export interface UseSSEReturn {
   // Connection state
   isConnected: boolean
   isConnecting: boolean
-  
+
   // Event handlers
   onMessageUpdate: (callback: (message: Message) => void) => () => void
   onSessionUpdate: (callback: (session: Session) => void) => () => void
   onError: (callback: (error: string) => void) => () => void
-  
+
   // Connection control
   connect: () => Promise<void>
   disconnect: () => void
-  
+
   // Error state
   error: string | null
   clearError: () => void
@@ -26,12 +26,12 @@ export function useSSE(): UseSSEReturn {
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+
   // Event listeners
   const messageUpdateListeners = useRef<Array<(message: Message) => void>>([])
   const sessionUpdateListeners = useRef<Array<(session: Session) => void>>([])
   const errorListeners = useRef<Array<(error: string) => void>>([])
-  
+
   // Stream controller for cleanup
   const streamController = useRef<AbortController | null>(null)
   const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -63,7 +63,7 @@ export function useSSE(): UseSSEReturn {
 
       // Start streaming events
       const eventStream = openCodeService.streamEvents()
-      
+
       setIsConnected(true)
       setIsConnecting(false)
       reconnectAttempts.current = 0
@@ -76,19 +76,18 @@ export function useSSE(): UseSSEReturn {
 
         await handleStreamEvent(event)
       }
-
     } catch (err) {
       console.error('SSE connection error:', err)
-      
-      const errorMessage = err instanceof Error ? err.message : 'SSE connection failed'
+
+      const errorMessage =
+        err instanceof Error ? err.message : 'SSE connection failed'
       setError(errorMessage)
-      
+
       // Notify error listeners
       errorListeners.current.forEach(listener => listener(errorMessage))
-      
+
       // Attempt reconnection
       scheduleReconnect()
-      
     } finally {
       setIsConnected(false)
       setIsConnecting(false)
@@ -125,12 +124,14 @@ export function useSSE(): UseSSEReturn {
     }
 
     const delay = reconnectDelay * Math.pow(2, reconnectAttempts.current) // Exponential backoff
-    
+
     reconnectTimeout.current = setTimeout(() => {
       reconnectTimeout.current = null
       reconnectAttempts.current++
-      
-      console.log(`Attempting SSE reconnection (${reconnectAttempts.current}/${maxReconnectAttempts})`)
+
+      console.log(
+        `Attempting SSE reconnection (${reconnectAttempts.current}/${maxReconnectAttempts})`
+      )
       connect()
     }, delay)
   }, [connect])
@@ -141,7 +142,9 @@ export function useSSE(): UseSSEReturn {
         case 'message_updated':
           if (event.messageInfo) {
             const message = transformMessageFromSSE(event.messageInfo)
-            messageUpdateListeners.current.forEach(listener => listener(message))
+            messageUpdateListeners.current.forEach(listener =>
+              listener(message)
+            )
           }
           break
 
@@ -155,19 +158,23 @@ export function useSSE(): UseSSEReturn {
               role: 'assistant',
               content: textPart.text,
               // Preserve server timestamp if available, otherwise use current time
-              timestamp: textPart.time?.created 
+              timestamp: textPart.time?.created
                 ? new Date(textPart.time.created * 1000)
                 : new Date(),
               status: 'sent',
             }
-            messageUpdateListeners.current.forEach(listener => listener(partialMessage))
+            messageUpdateListeners.current.forEach(listener =>
+              listener(partialMessage)
+            )
           }
           break
 
         case 'session_updated':
           if (event.sessionInfo) {
             const session = transformSessionFromSSE(event.sessionInfo)
-            sessionUpdateListeners.current.forEach(listener => listener(session))
+            sessionUpdateListeners.current.forEach(listener =>
+              listener(session)
+            )
           }
           break
 
@@ -204,31 +211,37 @@ export function useSSE(): UseSSEReturn {
   }, [disconnect])
 
   // Event listener registration functions
-  const onMessageUpdate = useCallback((callback: (message: Message) => void) => {
-    messageUpdateListeners.current.push(callback)
-    
-    return () => {
-      const index = messageUpdateListeners.current.indexOf(callback)
-      if (index > -1) {
-        messageUpdateListeners.current.splice(index, 1)
-      }
-    }
-  }, [])
+  const onMessageUpdate = useCallback(
+    (callback: (message: Message) => void) => {
+      messageUpdateListeners.current.push(callback)
 
-  const onSessionUpdate = useCallback((callback: (session: Session) => void) => {
-    sessionUpdateListeners.current.push(callback)
-    
-    return () => {
-      const index = sessionUpdateListeners.current.indexOf(callback)
-      if (index > -1) {
-        sessionUpdateListeners.current.splice(index, 1)
+      return () => {
+        const index = messageUpdateListeners.current.indexOf(callback)
+        if (index > -1) {
+          messageUpdateListeners.current.splice(index, 1)
+        }
       }
-    }
-  }, [])
+    },
+    []
+  )
+
+  const onSessionUpdate = useCallback(
+    (callback: (session: Session) => void) => {
+      sessionUpdateListeners.current.push(callback)
+
+      return () => {
+        const index = sessionUpdateListeners.current.indexOf(callback)
+        if (index > -1) {
+          sessionUpdateListeners.current.splice(index, 1)
+        }
+      }
+    },
+    []
+  )
 
   const onError = useCallback((callback: (error: string) => void) => {
     errorListeners.current.push(callback)
-    
+
     return () => {
       const index = errorListeners.current.indexOf(callback)
       if (index > -1) {
@@ -245,16 +258,16 @@ export function useSSE(): UseSSEReturn {
     // Connection state
     isConnected,
     isConnecting,
-    
+
     // Event handlers
     onMessageUpdate,
     onSessionUpdate,
     onError,
-    
+
     // Connection control
     connect,
     disconnect,
-    
+
     // Error state
     error,
     clearError,
@@ -268,9 +281,10 @@ function transformMessageFromSSE(messageInfo: any): Message {
     sessionId: messageInfo.sessionID,
     role: messageInfo.role,
     content: '', // Will be filled by parts
-    timestamp: new Date(messageInfo.role === 'user' 
-      ? messageInfo.time.created * 1000
-      : messageInfo.time.created * 1000
+    timestamp: new Date(
+      messageInfo.role === 'user'
+        ? messageInfo.time.created * 1000
+        : messageInfo.time.created * 1000
     ),
     status: 'sent',
   }

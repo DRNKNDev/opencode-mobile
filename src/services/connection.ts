@@ -98,10 +98,10 @@ class ConnectionService {
 
       // Start health monitoring
       this.startHealthMonitoring()
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Connection failed'
-      
+      const errorMessage =
+        error instanceof Error ? error.message : 'Connection failed'
+
       this.setState({
         status: 'error',
         error: errorMessage,
@@ -119,9 +119,9 @@ class ConnectionService {
   async disconnect(): Promise<void> {
     this.stopHealthMonitoring()
     this.stopReconnectAttempts()
-    
+
     openCodeService.disconnect()
-    
+
     this.setState({
       status: 'disconnected',
       serverUrl: null,
@@ -147,7 +147,7 @@ class ConnectionService {
 
     try {
       const healthCheck = await openCodeService.checkHealth()
-      
+
       if (healthCheck.status === 'error') {
         this.setState({
           status: 'error',
@@ -158,8 +158,9 @@ class ConnectionService {
         this.scheduleReconnect()
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Health check failed'
-      
+      const errorMessage =
+        error instanceof Error ? error.message : 'Health check failed'
+
       this.setState({
         status: 'error',
         error: errorMessage,
@@ -171,7 +172,7 @@ class ConnectionService {
 
   private startHealthMonitoring(): void {
     this.stopHealthMonitoring()
-    
+
     this.healthCheckInterval = setInterval(() => {
       this.performHealthCheck()
     }, this.healthCheckInterval_ms)
@@ -190,10 +191,10 @@ class ConnectionService {
     }
 
     const delay = this.retryDelay * Math.pow(2, this.state.retryCount) // Exponential backoff
-    
+
     this.reconnectTimeout = setTimeout(async () => {
       this.reconnectTimeout = null
-      
+
       this.setState({
         retryCount: this.state.retryCount + 1,
       })

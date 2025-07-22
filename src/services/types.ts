@@ -62,5 +62,3 @@ export interface UserPreferences {
   theme: 'tokyonight-dark' | 'tokyonight-light'
   hapticFeedback: boolean
 }
-
-

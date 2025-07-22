@@ -36,9 +36,17 @@ export default function ChatScreen() {
 
   // Real hooks integration
   const { isConnected } = useConnectionContext()
-  const { messages, sendMessage, addMessage, updateMessage, isSending, isLoading } = useMessages(id)
+  const {
+    messages,
+    sendMessage,
+    addMessage,
+    updateMessage,
+    isSending,
+    isLoading,
+  } = useMessages(id)
   const { onMessageUpdate } = useSSE()
-  const { selectedModel, selectModel, availableModels, getProviderIdForModel } = useModels()
+  const { selectedModel, selectModel, availableModels, getProviderIdForModel } =
+    useModels()
 
   const isStreaming = isSending
 
@@ -46,7 +54,9 @@ export default function ChatScreen() {
 
   // Sort messages by timestamp to ensure chronological order
   const sortedMessages = useMemo(() => {
-    return messages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+    return messages.sort(
+      (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+    )
   }, [messages])
 
   const scrollToBottom = useCallback(() => {
@@ -80,7 +90,10 @@ export default function ChatScreen() {
   // Auto-scroll when new assistant messages arrive (only if user was already near bottom)
   useEffect(() => {
     // Only auto-scroll if new messages were added
-    if (sortedMessages.length > prevMessagesLength.current && sortedMessages.length > 0) {
+    if (
+      sortedMessages.length > prevMessagesLength.current &&
+      sortedMessages.length > 0
+    ) {
       const lastMessage = sortedMessages[sortedMessages.length - 1]
       // Capture isNearBottom at the time of message addition
       const wasNearBottom = isNearBottom
@@ -205,7 +218,8 @@ export default function ChatScreen() {
                 Loading messages...
               </Text>
             </YStack>
-           ) : sortedMessages.length === 0 ? (            <YStack
+          ) : sortedMessages.length === 0 ? (
+            <YStack
               flex={1}
               justifyContent="center"
               alignItems="center"

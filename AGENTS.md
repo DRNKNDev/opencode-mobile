@@ -33,10 +33,12 @@ Follow [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0
 **Format**: `<type>[optional scope]: <description>`
 
 **Required Types**:
+
 - `feat:` - New feature (correlates with MINOR in SemVer)
 - `fix:` - Bug fix (correlates with PATCH in SemVer)
 
 **Additional Types**:
+
 - `build:` - Build system or external dependencies
 - `chore:` - Maintenance tasks, no production code change
 - `ci:` - CI configuration files and scripts
@@ -51,6 +53,7 @@ Follow [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0
 **Breaking Changes**: Use `!` after type/scope or `BREAKING CHANGE:` footer (correlates with MAJOR in SemVer)
 
 **Examples**:
+
 - `feat: add user authentication`
 - `fix(api): resolve timeout issue in user login`
 - `feat!: migrate to new authentication system`

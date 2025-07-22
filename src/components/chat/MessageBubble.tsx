@@ -40,7 +40,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       partContent: part.content?.substring(0, 100) + '...',
       toolName: part.toolName,
       toolResult: part.toolResult,
-      fullPart: part
+      fullPart: part,
     })
 
     switch (part.type) {
@@ -57,9 +57,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         debug.log('Tool execution part detected:', {
           toolName: part.toolName,
           hasToolResult: !!part.toolResult,
-          toolResult: part.toolResult
+          toolResult: part.toolResult,
         })
-        
+
         if (part.toolResult) {
           const toolPart: ToolPart = {
             id: `${message.id}-tool-${index}`,
@@ -114,7 +114,11 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     if (part.type === 'tool_execution') {
       // Tool executions render full width
       return (
-        <YStack key={`${message.id}-part-${index}`} paddingHorizontal="$4" marginBottom="$2">
+        <YStack
+          key={`${message.id}-part-${index}`}
+          paddingHorizontal="$4"
+          marginBottom="$2"
+        >
           {renderMessagePart(part, index)}
         </YStack>
       )
@@ -143,8 +147,10 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       {message.parts && message.parts.length > 0 ? (
         <>
           {/* Render all parts in original sequential order */}
-          {message.parts.map((part, index) => renderPartWithLayout(part, index))}
-          
+          {message.parts.map((part, index) =>
+            renderPartWithLayout(part, index)
+          )}
+
           {/* Timestamp at the end */}
           <XStack
             justifyContent={isUser ? 'flex-end' : 'flex-start'}
@@ -169,11 +175,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 </Text>
               )}
               {message.status === 'error' && (
-                <Text
-                  fontSize="$1"
-                  color="$red10"
-                  opacity={0.9}
-                >
+                <Text fontSize="$1" color="$red10" opacity={0.9}>
                   • Failed
                 </Text>
               )}

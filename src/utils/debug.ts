@@ -1,6 +1,6 @@
 /**
  * Simple environment-based debug logging utility for Expo
- * 
+ *
  * Features:
  * - Production-safe (no logs in production builds)
  * - Simple general logging with emojis for easy scanning
@@ -9,10 +9,10 @@
  */
 
 // Check if debugging is enabled
-const DEBUG_ENABLED = __DEV__ && (
-  process.env.EXPO_PUBLIC_DEBUG === 'true' || 
-  process.env.NODE_ENV === 'development'
-)
+const DEBUG_ENABLED =
+  __DEV__ &&
+  (process.env.EXPO_PUBLIC_DEBUG === 'true' ||
+    process.env.NODE_ENV === 'development')
 
 // Simple debug logging
 export const debug = {
@@ -49,7 +49,7 @@ export const debug = {
    */
   info: (message: string, ...args: any[]) => {
     if (DEBUG_ENABLED) console.info(`ℹ️ ${message}`, ...args)
-  }
+  },
 }
 
 /**
@@ -121,7 +121,7 @@ export const debugUtils = {
     } else {
       fn()
     }
-  }
+  },
 }
 
 /**
@@ -132,7 +132,7 @@ export const debugEnv = {
   isDebugEnabled: DEBUG_ENABLED,
   nodeEnv: process.env.NODE_ENV,
   expoDebug: process.env.EXPO_PUBLIC_DEBUG,
-  
+
   /**
    * Print environment debug info
    */
@@ -142,8 +142,8 @@ export const debugEnv = {
         isDev: debugEnv.isDev,
         isDebugEnabled: debugEnv.isDebugEnabled,
         nodeEnv: debugEnv.nodeEnv,
-        expoDebug: debugEnv.expoDebug
+        expoDebug: debugEnv.expoDebug,
       })
     }
-  }
+  },
 }

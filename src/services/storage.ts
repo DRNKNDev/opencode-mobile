@@ -1,6 +1,12 @@
 import { MMKV } from 'react-native-mmkv'
 import { STORAGE_KEYS } from '../config/constants'
-import type { Session, UserPreferences, Model, ModelPreferences, CachedModels } from './types'
+import type {
+  Session,
+  UserPreferences,
+  Model,
+  ModelPreferences,
+  CachedModels,
+} from './types'
 
 class StorageService {
   private storage = new MMKV()
@@ -157,13 +163,14 @@ class StorageService {
     this.storage.set(STORAGE_KEYS.modelPreferences, JSON.stringify(preferences))
   }
 
-  updateModelPreference(key: keyof ModelPreferences, value: string | Record<string, string>): void {
+  updateModelPreference(
+    key: keyof ModelPreferences,
+    value: string | Record<string, string>
+  ): void {
     const preferences = this.getModelPreferences()
     preferences[key] = value as any
     this.setModelPreferences(preferences)
   }
-
-
 
   // Helper to check if cached models are still valid (24 hours)
   isCacheValid(cached: CachedModels, serverUrl: string): boolean {

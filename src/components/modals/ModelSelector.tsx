@@ -86,10 +86,10 @@ export function ModelSelector({
               Select Model
             </Text>
             <XStack gap="$2">
-              <Button 
-                size="$3" 
-                chromeless 
-                icon={RefreshCw} 
+              <Button
+                size="$3"
+                chromeless
+                icon={RefreshCw}
                 onPress={handleRefresh}
                 disabled={isLoading}
                 opacity={isLoading ? 0.5 : 1}
@@ -117,7 +117,12 @@ export function ModelSelector({
 
           {/* Empty State */}
           {!isLoading && availableModels.length === 0 && (
-            <Text fontSize="$4" color="$color11" textAlign="center" padding="$4">
+            <Text
+              fontSize="$4"
+              color="$color11"
+              textAlign="center"
+              padding="$4"
+            >
               No models available. Try refreshing or check your connection.
             </Text>
           )}

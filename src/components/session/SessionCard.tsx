@@ -11,7 +11,13 @@ export interface SessionCardProps {
   isDeleting?: boolean
 }
 
-export function SessionCard({ session, onPress, onShare, onDelete, isDeleting }: SessionCardProps) {
+export function SessionCard({
+  session,
+  onPress,
+  onShare,
+  onDelete,
+  isDeleting,
+}: SessionCardProps) {
   const formatDate = (date: Date) => {
     const now = new Date()
     const diffInHours = Math.floor(

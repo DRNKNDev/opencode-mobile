@@ -9,16 +9,16 @@ export interface UseConnectionReturn {
   isConnected: boolean
   isConnecting: boolean
   isReady: boolean
-  
+
   // Connection actions
   connect: (serverUrl: string) => Promise<void>
   disconnect: () => Promise<void>
   reconnect: () => Promise<void>
-  
+
   // Models
   models: Model[]
   refreshModels: () => Promise<void>
-  
+
   // Error handling
   error: string | null
   clearError: () => void
@@ -32,7 +32,7 @@ export function useConnection(): UseConnectionReturn {
 
   // Subscribe to connection state changes
   useEffect(() => {
-    const unsubscribe = connectionService.subscribe((state) => {
+    const unsubscribe = connectionService.subscribe(state => {
       setConnectionState(state)
     })
 
@@ -103,16 +103,16 @@ export function useConnection(): UseConnectionReturn {
     isConnected: connectionState.status === 'connected',
     isConnecting: connectionState.status === 'connecting' || isLoading,
     isReady: connectionService.isReady(),
-    
+
     // Connection actions
     connect,
     disconnect,
     reconnect,
-    
+
     // Models
     models: connectionState.models,
     refreshModels,
-    
+
     // Error handling
     error: connectionState.error,
     clearError,

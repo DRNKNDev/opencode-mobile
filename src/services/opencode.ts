@@ -22,7 +22,14 @@ export interface SendMessageRequest {
 
 export interface StreamResponse {
   id: string
-  type: 'message_updated' | 'message_part_updated' | 'session_updated' | 'session_error' | 'session_idle' | 'tool_execution' | 'error'
+  type:
+    | 'message_updated'
+    | 'message_part_updated'
+    | 'session_updated'
+    | 'session_error'
+    | 'session_idle'
+    | 'tool_execution'
+    | 'error'
   messageInfo?: Opencode.Message
   part?: Opencode.Part
   sessionInfo?: Opencode.Session
@@ -74,10 +81,10 @@ class OpenCodeService {
 
     try {
       const response = await this.client.app.providers()
-      
+
       // Transform response to our Model interface
       const models: Model[] = []
-      
+
       response.providers.forEach(provider => {
         Object.entries(provider.models).forEach(([modelId, model]) => {
           models.push({
@@ -88,7 +95,7 @@ class OpenCodeService {
           })
         })
       })
-      
+
       return models
     } catch (error) {
       console.error('Failed to fetch models:', error)
@@ -103,9 +110,9 @@ class OpenCodeService {
 
     try {
       const response = await this.client.session.list()
-      
+
       // Transform response to our Session interface
-      return response.map((session) => ({
+      return response.map(session => ({
         id: session.id,
         title: session.title || 'Untitled Session',
         createdAt: new Date(session.time.created * 1000), // Convert from Unix timestamp
@@ -164,20 +171,23 @@ class OpenCodeService {
 
     try {
       const response = await this.client.session.messages(sessionId)
-      
-      return response.map((item) => {
+
+      return response.map(item => {
         const message = item.info
-        const textParts = item.parts.filter(part => part.type === 'text') as Opencode.TextPart[]
+        const textParts = item.parts.filter(
+          part => part.type === 'text'
+        ) as Opencode.TextPart[]
         const content = textParts.map(part => part.text).join('')
-        
+
         return {
           id: message.id,
           sessionId: message.sessionID,
           role: message.role,
           content: content,
-          timestamp: new Date(message.role === 'user' 
-            ? (message as Opencode.UserMessage).time.created * 1000
-            : (message as Opencode.AssistantMessage).time.created * 1000
+          timestamp: new Date(
+            message.role === 'user'
+              ? (message as Opencode.UserMessage).time.created * 1000
+              : (message as Opencode.AssistantMessage).time.created * 1000
           ),
           status: 'sent' as const,
           parts: item.parts
@@ -187,25 +197,52 @@ class OpenCodeService {
               return !unwantedTypes.includes(part.type)
             })
             .map((part, partIndex) => {
-              debug.log(`Processing part ${partIndex} for message ${message.id}:`, {
-                originalPartType: part.type,
-                mappedPartType: this.mapPartType(part.type),
-                isTextPart: part.type === 'text',
-                isToolPart: part.type === 'tool',
-                isFilePart: part.type === 'file',
-                toolName: part.type === 'tool' ? (part as Opencode.ToolPart).tool : undefined,
-                toolState: part.type === 'tool' ? (part as Opencode.ToolPart).state : undefined,
-                fileName: part.type === 'file' ? (part as Opencode.FilePart).filename : undefined,
-                fullPart: part
-              })
+              debug.log(
+                `Processing part ${partIndex} for message ${message.id}:`,
+                {
+                  originalPartType: part.type,
+                  mappedPartType: this.mapPartType(part.type),
+                  isTextPart: part.type === 'text',
+                  isToolPart: part.type === 'tool',
+                  isFilePart: part.type === 'file',
+                  toolName:
+                    part.type === 'tool'
+                      ? (part as Opencode.ToolPart).tool
+                      : undefined,
+                  toolState:
+                    part.type === 'tool'
+                      ? (part as Opencode.ToolPart).state
+                      : undefined,
+                  fileName:
+                    part.type === 'file'
+                      ? (part as Opencode.FilePart).filename
+                      : undefined,
+                  fullPart: part,
+                }
+              )
 
               const mappedPart = {
                 type: this.mapPartType(part.type),
-                content: part.type === 'text' ? (part as Opencode.TextPart).text : 
-                        part.type === 'file' ? `File: ${(part as Opencode.FilePart).filename}` : '',
-                language: part.type === 'file' ? this.getLanguageFromFilename((part as Opencode.FilePart).filename || 'unknown') : undefined,
-                toolName: part.type === 'tool' ? (part as Opencode.ToolPart).tool : undefined,
-                toolResult: part.type === 'tool' ? (part as Opencode.ToolPart).state : undefined,
+                content:
+                  part.type === 'text'
+                    ? (part as Opencode.TextPart).text
+                    : part.type === 'file'
+                      ? `File: ${(part as Opencode.FilePart).filename}`
+                      : '',
+                language:
+                  part.type === 'file'
+                    ? this.getLanguageFromFilename(
+                        (part as Opencode.FilePart).filename || 'unknown'
+                      )
+                    : undefined,
+                toolName:
+                  part.type === 'tool'
+                    ? (part as Opencode.ToolPart).tool
+                    : undefined,
+                toolResult:
+                  part.type === 'tool'
+                    ? (part as Opencode.ToolPart).state
+                    : undefined,
               }
 
               debug.success(`Created mapped part ${partIndex}:`, mappedPart)
@@ -219,26 +256,30 @@ class OpenCodeService {
     }
   }
 
-  async sendMessage(request: SendMessageRequest): Promise<Opencode.AssistantMessage> {
+  async sendMessage(
+    request: SendMessageRequest
+  ): Promise<Opencode.AssistantMessage> {
     if (!this.client) {
       throw new Error('Client not initialized')
     }
 
     try {
       const messageId = `msg${Math.random().toString(36).substring(2, 15)}`
-      
+
       const response = await this.client.session.chat(request.sessionId, {
         messageID: messageId,
         mode: request.mode || 'chat',
         modelID: request.modelId,
         providerID: request.providerId,
-        parts: [{
-          id: Math.random().toString(36).substring(2, 15),
-          messageID: messageId,
-          sessionID: request.sessionId,
-          text: request.content,
-          type: 'text' as const,
-        }],
+        parts: [
+          {
+            id: Math.random().toString(36).substring(2, 15),
+            messageID: messageId,
+            sessionID: request.sessionId,
+            text: request.content,
+            type: 'text' as const,
+          },
+        ],
       })
 
       return response
@@ -271,7 +312,7 @@ class OpenCodeService {
 
   private transformEvent(event: Opencode.EventListResponse): StreamResponse {
     const id = Math.random().toString(36).substring(2, 15)
-    
+
     switch (event.type) {
       case 'message.updated':
         return {
@@ -279,34 +320,36 @@ class OpenCodeService {
           type: 'message_updated',
           messageInfo: event.properties.info,
         }
-      
+
       case 'message.part.updated':
         return {
           id,
           type: 'message_part_updated',
           part: event.properties.part,
         }
-      
+
       case 'session.updated':
         return {
           id,
           type: 'session_updated',
           sessionInfo: event.properties.info,
         }
-      
+
       case 'session.error':
         return {
           id,
           type: 'session_error',
-          error: event.properties.error ? JSON.stringify(event.properties.error) : 'Unknown session error',
+          error: event.properties.error
+            ? JSON.stringify(event.properties.error)
+            : 'Unknown session error',
         }
-      
+
       case 'session.idle':
         return {
           id,
           type: 'session_idle',
         }
-      
+
       default:
         return {
           id,
@@ -318,7 +361,7 @@ class OpenCodeService {
 
   private mapPartType(partType: string): 'text' | 'code' | 'tool_execution' {
     debug.log('mapPartType called with:', partType)
-    
+
     switch (partType) {
       case 'text':
         debug.success('Mapped to: text')
@@ -337,7 +380,7 @@ class OpenCodeService {
 
   private getLanguageFromFilename(filename: string): string {
     const ext = filename.split('.').pop()?.toLowerCase()
-    
+
     switch (ext) {
       case 'js':
       case 'jsx':

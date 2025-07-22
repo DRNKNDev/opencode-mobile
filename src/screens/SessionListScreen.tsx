@@ -43,7 +43,7 @@ export default function SessionListScreen() {
     try {
       const newSession = await createSession()
       setNewSessionInput('')
-      
+
       // Navigate to the new session
       router.push(`/chat/${newSession.id}`)
     } catch (error) {

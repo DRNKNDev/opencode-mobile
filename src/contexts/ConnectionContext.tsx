@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from 'react'
 import { connectionService, type ConnectionState } from '../services/connection'
 import type { ConnectionStatus, Model } from '../services/types'
 
@@ -9,16 +15,16 @@ export interface ConnectionContextValue {
   isConnected: boolean
   isConnecting: boolean
   isReady: boolean
-  
+
   // Connection actions
   connect: (serverUrl: string) => Promise<void>
   disconnect: () => Promise<void>
   reconnect: () => Promise<void>
-  
+
   // Models
   models: Model[]
   refreshModels: () => Promise<void>
-  
+
   // Error handling
   error: string | null
   clearError: () => void
@@ -29,7 +35,9 @@ const ConnectionContext = createContext<ConnectionContextValue | null>(null)
 export function useConnectionContext(): ConnectionContextValue {
   const context = useContext(ConnectionContext)
   if (!context) {
-    throw new Error('useConnectionContext must be used within a ConnectionProvider')
+    throw new Error(
+      'useConnectionContext must be used within a ConnectionProvider'
+    )
   }
   return context
 }
@@ -46,7 +54,7 @@ export function ConnectionProvider({ children }: ConnectionProviderProps) {
 
   // Subscribe to connection state changes
   useEffect(() => {
-    const unsubscribe = connectionService.subscribe((state) => {
+    const unsubscribe = connectionService.subscribe(state => {
       setConnectionState(state)
     })
 
@@ -57,7 +65,9 @@ export function ConnectionProvider({ children }: ConnectionProviderProps) {
   useEffect(() => {
     const initializeConnection = async () => {
       try {
-        console.log('🚀 Initializing connection from storage (ConnectionProvider)')
+        console.log(
+          '🚀 Initializing connection from storage (ConnectionProvider)'
+        )
         await connectionService.initializeFromStorage()
       } catch (error) {
         console.warn('Failed to initialize connection from storage:', error)
@@ -117,16 +127,16 @@ export function ConnectionProvider({ children }: ConnectionProviderProps) {
     isConnected: connectionState.status === 'connected',
     isConnecting: connectionState.status === 'connecting' || isLoading,
     isReady: connectionService.isReady(),
-    
+
     // Connection actions
     connect,
     disconnect,
     reconnect,
-    
+
     // Models
     models: connectionState.models,
     refreshModels,
-    
+
     // Error handling
     error: connectionState.error,
     clearError,
