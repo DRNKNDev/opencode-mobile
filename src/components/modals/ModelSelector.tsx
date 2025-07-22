@@ -1,64 +1,25 @@
-import { X } from '@tamagui/lucide-icons'
+import { RefreshCw, X } from '@tamagui/lucide-icons'
 import { RadioGroup } from '@tamagui/radio-group'
 import { Sheet } from '@tamagui/sheet'
 import { useState } from 'react'
-import { Button, Separator, Text, XStack, YStack } from 'tamagui'
-
-export interface Model {
-  id: string
-  name: string
-  provider: string
-  description?: string
-}
+import { Button, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
+import { useModels } from '../../hooks/useModels'
+import type { Model } from '../../services/types'
 
 export interface ModelSelectorProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   selectedModel: string
   onModelSelect: (modelId: string) => void
-  models?: Model[]
 }
-
-const defaultModels: Model[] = [
-  {
-    id: 'claude-3.5-sonnet',
-    name: 'Claude 3.5 Sonnet',
-    provider: 'Anthropic',
-    description: 'Most capable model for complex tasks',
-  },
-  {
-    id: 'claude-3.5-haiku',
-    name: 'Claude 3.5 Haiku',
-    provider: 'Anthropic',
-    description: 'Fast and efficient for simple tasks',
-  },
-  {
-    id: 'claude-4-sonnet',
-    name: 'Claude 4 Sonnet',
-    provider: 'Anthropic',
-    description: 'Next generation model with enhanced capabilities',
-  },
-  {
-    id: 'gpt-4o',
-    name: 'GPT-4o',
-    provider: 'OpenAI',
-    description: 'Latest multimodal model',
-  },
-  {
-    id: 'gpt-4o-mini',
-    name: 'GPT-4o mini',
-    provider: 'OpenAI',
-    description: 'Smaller, faster version of GPT-4o',
-  },
-]
 
 export function ModelSelector({
   open,
   onOpenChange,
   selectedModel,
   onModelSelect,
-  models = defaultModels,
 }: ModelSelectorProps) {
+  const { availableModels, isLoading, error, refreshModels } = useModels()
   const [instanceId] = useState(() =>
     Math.random().toString(36).substring(2, 9)
   )
@@ -72,8 +33,17 @@ export function ModelSelector({
     onOpenChange(false)
   }
 
+  const handleRefresh = async () => {
+    try {
+      await refreshModels()
+    } catch (err) {
+      // Error is handled by the hook
+      console.error('Failed to refresh models:', err)
+    }
+  }
+
   // Group models by provider
-  const groupedModels = models.reduce(
+  const groupedModels = availableModels.reduce(
     (acc, model) => {
       if (!acc[model.provider]) {
         acc[model.provider] = []
@@ -115,85 +85,134 @@ export function ModelSelector({
             <Text fontSize="$6" fontWeight="600" color="$color">
               Select Model
             </Text>
-            <Button size="$3" chromeless icon={X} onPress={handleClose} />
+            <XStack gap="$2">
+              <Button 
+                size="$3" 
+                chromeless 
+                icon={RefreshCw} 
+                onPress={handleRefresh}
+                disabled={isLoading}
+                opacity={isLoading ? 0.5 : 1}
+              />
+              <Button size="$3" chromeless icon={X} onPress={handleClose} />
+            </XStack>
           </XStack>
 
+          {/* Error Message */}
+          {error && (
+            <Text fontSize="$3" color="$red10" textAlign="center">
+              {error}
+            </Text>
+          )}
+
+          {/* Loading State */}
+          {isLoading && (
+            <XStack justifyContent="center" padding="$4">
+              <Spinner size="small" />
+              <Text fontSize="$3" color="$color11" marginLeft="$2">
+                Loading models...
+              </Text>
+            </XStack>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && availableModels.length === 0 && (
+            <Text fontSize="$4" color="$color11" textAlign="center" padding="$4">
+              No models available. Try refreshing or check your connection.
+            </Text>
+          )}
+
           {/* Model List */}
-          <RadioGroup
-            value={selectedModel}
-            onValueChange={handleModelSelect}
-            name={`model-selector-${instanceId}`}
+          <Sheet.ScrollView
+            height={400}
+            flex={0}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
           >
-            <YStack gap="$4">
-              {Object.entries(groupedModels).map(
-                ([provider, providerModels]) => (
-                  <YStack key={provider} gap="$2">
-                    <Text fontSize="$4" fontWeight="600" color="$color11">
-                      {provider}
-                    </Text>
+            <RadioGroup
+              value={selectedModel}
+              onValueChange={handleModelSelect}
+              name={`model-selector-${instanceId}`}
+            >
+              <YStack gap="$4" paddingRight="$2">
+                {Object.entries(groupedModels).map(
+                  ([provider, providerModels]) => (
+                    <YStack key={provider} gap="$2">
+                      <Text fontSize="$4" fontWeight="600" color="$color11">
+                        {provider}
+                      </Text>
 
-                    <YStack
-                      backgroundColor="$backgroundHover"
-                      borderRadius="$4"
-                      padding="$2"
-                    >
-                      {providerModels.map((model, index) => (
-                        <YStack key={model.id}>
-                          <XStack
-                            alignItems="center"
-                            gap="$3"
-                            padding="$3"
-                            borderRadius="$2"
-                            pressStyle={{
-                              backgroundColor: '$backgroundPress',
-                            }}
-                            hoverStyle={{
-                              backgroundColor: '$backgroundHover',
-                            }}
-                            onPress={() => handleModelSelect(model.id)}
-                          >
-                            <RadioGroup.Item
-                              value={model.id}
-                              id={`${instanceId}-${model.id}`}
-                              size="$4"
-                            >
-                              <RadioGroup.Indicator />
-                            </RadioGroup.Item>
+                      <YStack
+                        backgroundColor="$backgroundHover"
+                        borderRadius="$4"
+                        padding="$2"
+                      >
+                        <Sheet.ScrollView
+                          style={{ maxHeight: 200 }}
+                          showsVerticalScrollIndicator={true}
+                          nestedScrollEnabled={true}
+                        >
+                          <YStack gap="$1" paddingRight="$2">
+                            {providerModels.map((model, index) => (
+                              <YStack key={model.id}>
+                                <XStack
+                                  alignItems="center"
+                                  gap="$3"
+                                  padding="$3"
+                                  borderRadius="$2"
+                                  pressStyle={{
+                                    backgroundColor: '$backgroundPress',
+                                  }}
+                                  hoverStyle={{
+                                    backgroundColor: '$backgroundHover',
+                                  }}
+                                  onPress={() => handleModelSelect(model.id)}
+                                >
+                                  <RadioGroup.Item
+                                    value={model.id}
+                                    id={`${instanceId}-${model.id}`}
+                                    size="$4"
+                                  >
+                                    <RadioGroup.Indicator />
+                                  </RadioGroup.Item>
 
-                            <YStack flex={1}>
-                              <Text
-                                fontSize="$4"
-                                fontWeight="500"
-                                color={
-                                  selectedModel === model.id
-                                    ? '$blue10'
-                                    : '$color'
-                                }
-                              >
-                                {model.name}
-                              </Text>
-                              {model.description && (
-                                <Text fontSize="$3" color="$color11">
-                                  {model.description}
-                                </Text>
-                              )}
-                            </YStack>
-                          </XStack>
+                                  <YStack flex={1}>
+                                    <Text
+                                      fontSize="$4"
+                                      fontWeight="500"
+                                      color={
+                                        selectedModel === model.id
+                                          ? '$blue10'
+                                          : '$color'
+                                      }
+                                    >
+                                      {model.name}
+                                    </Text>
+                                    {model.description && (
+                                      <Text fontSize="$3" color="$color11">
+                                        {model.description}
+                                      </Text>
+                                    )}
+                                  </YStack>
+                                </XStack>
 
-                          {index < providerModels.length - 1 && (
-                            <Separator
-                              marginHorizontal="$3"
-                              borderWidth={0.5}
-                            />
-                          )}
-                        </YStack>
-                      ))}
+                                {index < providerModels.length - 1 && (
+                                  <Separator
+                                    marginHorizontal="$3"
+                                    borderWidth={0.5}
+                                  />
+                                )}
+                              </YStack>
+                            ))}
+                          </YStack>
+                        </Sheet.ScrollView>
+                      </YStack>
                     </YStack>
-                  </YStack>
-                )
-              )}
-            </YStack>
-          </RadioGroup>
+                  )
+                )}
+              </YStack>
+            </RadioGroup>
+          </Sheet.ScrollView>
         </YStack>
       </Sheet.Frame>
     </Sheet>
