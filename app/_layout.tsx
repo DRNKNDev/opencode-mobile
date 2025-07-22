@@ -4,6 +4,7 @@ import { PortalProvider } from '@tamagui/portal'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import config from '../tamagui.config'
 import { ThemeProvider, useThemeContext } from '../src/contexts/ThemeContext'
+import { ConnectionProvider } from '../src/contexts/ConnectionContext'
 import { ThemeStatusBar } from '../src/components/ui/ThemeStatusBar'
 
 function AppContent() {
@@ -31,9 +32,11 @@ function AppContent() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <AppContent />
-      </ThemeProvider>
+      <ConnectionProvider>
+        <ThemeProvider>
+          <AppContent />
+        </ThemeProvider>
+      </ConnectionProvider>
     </SafeAreaProvider>
   )
 }

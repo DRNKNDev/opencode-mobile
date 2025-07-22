@@ -13,6 +13,8 @@ export const STORAGE_KEYS = {
   currentSession: 'opencode_current_session',
   selectedModel: 'opencode_selected_model',
   userPreferences: 'opencode_user_preferences',
+  cachedModels: 'opencode_cached_models',
+  modelPreferences: 'opencode_model_preferences',
 } as const
 
 export const API_ENDPOINTS = {
