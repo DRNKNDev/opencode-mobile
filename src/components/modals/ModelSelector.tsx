@@ -1,7 +1,7 @@
-import React, { useState } from 'react'
 import { RefreshCw, X } from '@tamagui/lucide-icons'
 import { RadioGroup } from '@tamagui/radio-group'
 import { Sheet } from '@tamagui/sheet'
+import React, { useState } from 'react'
 import { Button, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
 import { useModels } from '../../hooks/useModels'
 import type { Model } from '../../services/types'
@@ -19,7 +19,8 @@ export function ModelSelector({
   selectedModel,
   onModelSelect,
 }: ModelSelectorProps) {
-  const { availableModels, isLoading, error, refreshModels } = useModels()
+  const { availableModels, defaultModels, isLoading, error, refreshModels } =
+    useModels()
   const [instanceId] = useState(() =>
     Math.random().toString(36).substring(2, 9)
   )
@@ -42,7 +43,16 @@ export function ModelSelector({
     }
   }
 
-  // Group models by provider
+  // Helper function to check if a model is the default for its provider
+  const isDefaultModel = (model: Model): boolean => {
+    const providerId = model.providerId || model.provider.toLowerCase()
+    return defaultModels[providerId] === model.id
+  }
+
+  // Get default models as a separate group
+  const defaultModelsList = availableModels.filter(isDefaultModel)
+
+  // Group all models by provider
   const groupedModels = availableModels.reduce(
     (acc, model) => {
       if (!acc[model.provider]) {
@@ -52,6 +62,72 @@ export function ModelSelector({
       return acc
     },
     {} as Record<string, Model[]>
+  )
+
+  // Constants for model display
+  const MODEL_ITEM_HEIGHT = 60 // Approximate height including padding and separator
+  const MAX_VISIBLE_MODELS = 3
+  const PROVIDER_SECTION_HEIGHT = MAX_VISIBLE_MODELS * MODEL_ITEM_HEIGHT
+
+  // Helper component to render a model item
+  const ModelItem = ({
+    model,
+    showProvider = false,
+  }: {
+    model: Model
+    showProvider?: boolean
+  }) => (
+    <XStack
+      alignItems="center"
+      gap="$3"
+      padding="$3"
+      borderRadius="$2"
+      pressStyle={{
+        backgroundColor: '$backgroundPress',
+      }}
+      hoverStyle={{
+        backgroundColor: '$backgroundHover',
+      }}
+      onPress={() => handleModelSelect(model.id)}
+    >
+      <RadioGroup.Item
+        value={model.id}
+        id={`${instanceId}-${model.id}`}
+        size="$4"
+      >
+        <RadioGroup.Indicator />
+      </RadioGroup.Item>
+
+      <YStack flex={1}>
+        <XStack alignItems="center" gap="$2">
+          <Text
+            fontSize="$4"
+            fontWeight="500"
+            color={selectedModel === model.id ? '$blue10' : '$color'}
+          >
+            {model.name}
+          </Text>
+          {showProvider && (
+            <Text
+              fontSize="$2"
+              fontWeight="500"
+              color="$color11"
+              backgroundColor="$color4"
+              paddingHorizontal="$2"
+              paddingVertical="$1"
+              borderRadius="$2"
+            >
+              {model.provider}
+            </Text>
+          )}
+        </XStack>
+        {model.description && (
+          <Text fontSize="$3" color="$color11">
+            {model.description}
+          </Text>
+        )}
+      </YStack>
+    </XStack>
   )
 
   return (
@@ -140,81 +216,106 @@ export function ModelSelector({
               name={`model-selector-${instanceId}`}
             >
               <YStack gap="$4" paddingRight="$2">
-                {Object.entries(groupedModels).map(
-                  ([provider, providerModels]) => (
-                    <YStack key={provider} gap="$2">
-                      <Text fontSize="$4" fontWeight="600" color="$color11">
-                        {provider}
+                {/* Recommended Models Section */}
+                {defaultModelsList.length > 0 && (
+                  <YStack gap="$2">
+                    <XStack alignItems="center" gap="$2">
+                      <Text fontSize="$4" fontWeight="600" color="$blue10">
+                        Default
                       </Text>
+                      <Text fontSize="$3" color="$color11">
+                        ({defaultModelsList.length})
+                      </Text>
+                    </XStack>
 
-                      <YStack
-                        backgroundColor="$backgroundHover"
-                        borderRadius="$4"
-                        padding="$2"
-                      >
-                        <Sheet.ScrollView
-                          style={{ maxHeight: 200 }}
-                          showsVerticalScrollIndicator={true}
-                          nestedScrollEnabled={true}
-                        >
-                          <YStack gap="$1" paddingRight="$2">
-                            {providerModels.map((model, index) => (
-                              <YStack key={model.id}>
-                                <XStack
-                                  alignItems="center"
-                                  gap="$3"
-                                  padding="$3"
-                                  borderRadius="$2"
-                                  pressStyle={{
-                                    backgroundColor: '$backgroundPress',
-                                  }}
-                                  hoverStyle={{
-                                    backgroundColor: '$backgroundHover',
-                                  }}
-                                  onPress={() => handleModelSelect(model.id)}
-                                >
-                                  <RadioGroup.Item
-                                    value={model.id}
-                                    id={`${instanceId}-${model.id}`}
-                                    size="$4"
-                                  >
-                                    <RadioGroup.Indicator />
-                                  </RadioGroup.Item>
-
-                                  <YStack flex={1}>
-                                    <Text
-                                      fontSize="$4"
-                                      fontWeight="500"
-                                      color={
-                                        selectedModel === model.id
-                                          ? '$blue10'
-                                          : '$color'
-                                      }
-                                    >
-                                      {model.name}
-                                    </Text>
-                                    {model.description && (
-                                      <Text fontSize="$3" color="$color11">
-                                        {model.description}
-                                      </Text>
-                                    )}
-                                  </YStack>
-                                </XStack>
-
-                                {index < providerModels.length - 1 && (
-                                  <Separator
-                                    marginHorizontal="$3"
-                                    borderWidth={0.5}
-                                  />
-                                )}
-                              </YStack>
-                            ))}
+                    <YStack
+                      backgroundColor="$backgroundHover"
+                      borderRadius="$4"
+                      padding="$2"
+                    >
+                      <YStack gap="$1" paddingRight="$2">
+                        {defaultModelsList.map((model, index) => (
+                          <YStack key={`recommended-${model.id}`}>
+                            <ModelItem model={model} showProvider={true} />
+                            {index < defaultModelsList.length - 1 && (
+                              <Separator
+                                marginHorizontal="$3"
+                                borderWidth={0.5}
+                                borderColor="$blue6"
+                              />
+                            )}
                           </YStack>
-                        </Sheet.ScrollView>
+                        ))}
                       </YStack>
                     </YStack>
-                  )
+                  </YStack>
                 )}
+
+                {/* All Models by Provider Section */}
+                <YStack gap="$2">
+                  <YStack gap="$3">
+                    {Object.entries(groupedModels).map(
+                      ([provider, providerModels]) => (
+                        <YStack key={provider} gap="$2">
+                          <XStack alignItems="center" gap="$2">
+                            <Text
+                              fontSize="$4"
+                              fontWeight="500"
+                              color="$color11"
+                            >
+                              {provider}
+                            </Text>
+                            <Text fontSize="$3" color="$color11">
+                              ({providerModels.length})
+                            </Text>
+                            {providerModels.length > MAX_VISIBLE_MODELS && (
+                              <Text
+                                fontSize="$2"
+                                color="$color10"
+                                fontStyle="italic"
+                              >
+                                scroll for more
+                              </Text>
+                            )}
+                          </XStack>
+
+                          <YStack
+                            backgroundColor="$backgroundHover"
+                            borderRadius="$4"
+                            padding="$2"
+                          >
+                            <Sheet.ScrollView
+                              style={{
+                                maxHeight:
+                                  providerModels.length > MAX_VISIBLE_MODELS
+                                    ? PROVIDER_SECTION_HEIGHT
+                                    : undefined,
+                              }}
+                              showsVerticalScrollIndicator={
+                                providerModels.length > MAX_VISIBLE_MODELS
+                              }
+                              nestedScrollEnabled={true}
+                            >
+                              <YStack gap="$1" paddingRight="$2">
+                                {providerModels.map((model, index) => (
+                                  <YStack key={model.id}>
+                                    <ModelItem model={model} />
+                                    {index < providerModels.length - 1 && (
+                                      <Separator
+                                        marginHorizontal="$3"
+                                        borderWidth={0.5}
+                                      />
+                                    )}
+                                  </YStack>
+                                ))}
+                              </YStack>
+                            </Sheet.ScrollView>
+                          </YStack>
+                        </YStack>
+                      )
+                    )}
+                  </YStack>
+                </YStack>
               </YStack>
             </RadioGroup>
           </Sheet.ScrollView>
