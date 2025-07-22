@@ -1,7 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { MessageCircle } from '@tamagui/lucide-icons'
 import { useRouter } from 'expo-router'
-import { useState } from 'react'
 import { FlatList, useWindowDimensions, RefreshControl } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text, YStack } from 'tamagui'
