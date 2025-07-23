@@ -1,10 +1,10 @@
-import { store$ } from './index'
 import {
   openCodeService,
-  type SendMessageRequest,
   type OpenCodeConfig,
+  type SendMessageRequest,
 } from '../services/opencode'
 import type { Message } from '../services/types'
+import { store$ } from './index'
 import { setActionError } from './utils'
 
 export const actions = {
@@ -44,8 +44,20 @@ export const actions = {
           throw new Error(healthCheck.error || 'Health check failed')
         }
 
-        // Fetch models
+        // Fetch models and modes
         const modelsResponse = await openCodeService.getModels()
+
+        // Try to fetch modes, use fallback if it fails
+        let modes
+        try {
+          modes = await openCodeService.getModes()
+        } catch (modeError) {
+          console.warn(
+            'Failed to fetch modes from API, using fallback:',
+            modeError
+          )
+          modes = actions.modes.getFallbackModes()
+        }
 
         // Update store with successful connection
         store$.connection.status.set('connected')
@@ -53,13 +65,25 @@ export const actions = {
         store$.connection.retryCount.set(0)
         store$.models.available.set(modelsResponse.models)
         store$.models.defaults.set(modelsResponse.defaultModels)
+        store$.modes.available.set(modes)
 
         // Auto-select a default model if none is currently selected
-        const currentSelected = store$.models.selected.get()
-        if (!currentSelected && modelsResponse.models.length > 0) {
+        const currentSelectedModel = store$.models.selected.get()
+        if (!currentSelectedModel && modelsResponse.models.length > 0) {
           const defaultModelId = Object.values(modelsResponse.defaultModels)[0]
           const modelToSelect = defaultModelId || modelsResponse.models[0].id
           store$.models.selected.set(modelToSelect)
+        }
+
+        // Auto-select a default mode if none is currently selected
+        const currentSelectedMode = store$.modes.selected.get()
+        if (!currentSelectedMode && modes.length > 0) {
+          // Prefer 'build' mode if available, otherwise select first available mode
+          const buildMode = modes.find(m => m.name === 'build')
+          const defaultMode = buildMode || modes[0]
+          if (defaultMode) {
+            store$.modes.selected.set(defaultMode.name)
+          }
         }
 
         // Start health monitoring
@@ -470,6 +494,83 @@ export const actions = {
   models: {
     selectModel: (modelId: string) => {
       store$.models.selected.set(modelId)
+    },
+  },
+
+  // Mode actions
+  modes: {
+    loadModes: async () => {
+      if (
+        store$.connection.status.get() !== 'connected' ||
+        !openCodeService.isInitialized()
+      ) {
+        throw new Error('Not connected to server')
+      }
+
+      store$.modes.isLoading.set(true)
+      store$.modes.error.set(null)
+
+      try {
+        const modes = await openCodeService.getModes()
+        store$.modes.available.set(modes)
+
+        // Auto-select a default mode if none is currently selected
+        const currentSelected = store$.modes.selected.get()
+        if (!currentSelected && modes.length > 0) {
+          // Prefer 'build' mode if available, otherwise select first available mode
+          const buildMode = modes.find(m => m.name === 'build')
+          const defaultMode = buildMode || modes[0]
+          if (defaultMode) {
+            store$.modes.selected.set(defaultMode.name)
+          }
+        }
+      } catch (error) {
+        // Set fallback modes when API fails
+        const fallbackModes = actions.modes.getFallbackModes()
+        store$.modes.available.set(fallbackModes)
+
+        // Auto-select build mode as default
+        const currentSelected = store$.modes.selected.get()
+        if (!currentSelected) {
+          store$.modes.selected.set('build')
+        }
+
+        setActionError(
+          error,
+          'Failed to load modes from server, using fallback modes',
+          store$.modes.error.set
+        )
+      } finally {
+        store$.modes.isLoading.set(false)
+      }
+    },
+
+    getFallbackModes: () => {
+      return [
+        {
+          name: 'build',
+          tools: {} as Record<string, boolean>,
+          model: { modelID: '', providerID: '' },
+        },
+        {
+          name: 'plan',
+          tools: {
+            write: false,
+            edit: false,
+            patch: false,
+            bash: false,
+          } as Record<string, boolean>,
+          model: { modelID: '', providerID: '' },
+        },
+      ]
+    },
+
+    selectMode: (modeId: string) => {
+      store$.modes.selected.set(modeId)
+    },
+
+    refreshModes: async () => {
+      await actions.modes.loadModes()
     },
   },
 

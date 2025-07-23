@@ -1,5 +1,6 @@
 import Opencode from '@opencode-ai/sdk'
 import type { Session, Message, Model } from './types'
+import type { Mode } from '../components/modals/ModeSelector'
 import { debug } from '../utils/debug'
 
 export interface OpenCodeConfig {
@@ -106,6 +107,25 @@ class OpenCodeService {
       }
     } catch (error) {
       console.error('Failed to fetch models:', error)
+      throw error
+    }
+  }
+
+  async getModes(): Promise<Mode[]> {
+    if (!this.client) {
+      throw new Error('Client not initialized')
+    }
+
+    try {
+      const response = await this.client.app.modes()
+      // Transform to match our interface structure
+      return response.map((apiMode: any) => ({
+        name: apiMode.name,
+        tools: apiMode.tools || {},
+        model: apiMode.model || { modelID: '', providerID: '' },
+      }))
+    } catch (error) {
+      console.error('Failed to fetch modes:', error)
       throw error
     }
   }
