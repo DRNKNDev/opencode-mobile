@@ -1,29 +1,79 @@
 import { store$ } from './index'
-import { connectionService } from '../services/connection'
-import { openCodeService, type SendMessageRequest } from '../services/opencode'
+import {
+  openCodeService,
+  type SendMessageRequest,
+  type OpenCodeConfig,
+} from '../services/opencode'
 import type { Message } from '../services/types'
+import { setActionError } from './utils'
 
 export const actions = {
   // Connection actions
   connection: {
     connect: async (serverUrl: string) => {
+      // Prevent multiple simultaneous connections
+      if (store$.connection.status.get() === 'connecting') {
+        return
+      }
+
       store$.connection.isLoading.set(true)
+      store$.connection.status.set('connecting')
+      store$.connection.serverUrl.set(serverUrl)
       store$.connection.error.set(null)
+      store$.connection.retryCount.set(0)
 
       try {
-        await connectionService.connect(serverUrl)
-        const state = connectionService.getState()
+        // Validate URL format
+        const url = new URL(serverUrl)
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          throw new Error('Invalid protocol. Use http:// or https://')
+        }
 
-        store$.connection.status.set(state.status)
-        store$.connection.serverUrl.set(state.serverUrl || '')
-        store$.connection.models.set(state.models)
-        store$.connection.defaultModels.set(state.defaultModels)
-        store$.connection.error.set(state.error)
+        // Initialize OpenCode service
+        const config: OpenCodeConfig = {
+          baseURL: serverUrl,
+          timeout: 10000, // 10 seconds for connection
+          maxRetries: 2,
+        }
+
+        openCodeService.initialize(config)
+
+        // Test connection
+        const healthCheck = await openCodeService.checkHealth()
+        if (healthCheck.status === 'error') {
+          throw new Error(healthCheck.error || 'Health check failed')
+        }
+
+        // Fetch models
+        const modelsResponse = await openCodeService.getModels()
+
+        // Update store with successful connection
+        store$.connection.status.set('connected')
+        store$.connection.lastConnected.set(new Date())
+        store$.connection.retryCount.set(0)
+        store$.models.available.set(modelsResponse.models)
+        store$.models.defaults.set(modelsResponse.defaultModels)
+
+        // Auto-select a default model if none is currently selected
+        const currentSelected = store$.models.selected.get()
+        if (!currentSelected && modelsResponse.models.length > 0) {
+          const defaultModelId = Object.values(modelsResponse.defaultModels)[0]
+          const modelToSelect = defaultModelId || modelsResponse.models[0].id
+          store$.models.selected.set(modelToSelect)
+        }
+
+        // Start health monitoring
+        actions.connection.startHealthMonitoring()
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Connection failed'
-        store$.connection.error.set(errorMessage)
+        setActionError(error, 'Connection failed', store$.connection.error.set)
         store$.connection.status.set('error')
+
+        // Attempt retry if not at max retries
+        const retryCount = store$.connection.retryCount.get()
+        if (retryCount < 3) {
+          actions.connection.scheduleReconnect()
+        }
+
         throw error
       } finally {
         store$.connection.isLoading.set(false)
@@ -34,16 +84,60 @@ export const actions = {
       store$.connection.isLoading.set(true)
 
       try {
-        await connectionService.disconnect()
-        const state = connectionService.getState()
+        // Stop health monitoring and reconnection attempts
+        actions.connection.stopHealthMonitoring()
+        actions.connection.stopReconnectAttempts()
 
-        store$.connection.status.set(state.status)
+        // Disconnect OpenCode service
+        openCodeService.disconnect()
+
+        // Reset connection state
+        store$.connection.status.set('disconnected')
         store$.connection.serverUrl.set('')
-        store$.connection.models.set([])
-        store$.connection.defaultModels.set({})
         store$.connection.error.set(null)
+        store$.connection.lastConnected.set(null)
+        store$.connection.retryCount.set(0)
+        store$.models.available.set([])
+        store$.models.defaults.set({})
       } finally {
         store$.connection.isLoading.set(false)
+      }
+    },
+
+    refreshModels: async () => {
+      // Check if we're connected
+      if (
+        store$.connection.status.get() !== 'connected' ||
+        !openCodeService.isInitialized()
+      ) {
+        throw new Error('Not connected to server')
+      }
+
+      store$.models.isLoading.set(true)
+
+      try {
+        const modelsResponse = await openCodeService.getModels()
+
+        store$.models.available.set(modelsResponse.models)
+        store$.models.defaults.set(modelsResponse.defaultModels)
+
+        // Auto-select a default model if none is currently selected
+        const currentSelected = store$.models.selected.get()
+        if (!currentSelected && modelsResponse.models.length > 0) {
+          // Try to find a default model first
+          const defaultModelId = Object.values(modelsResponse.defaultModels)[0]
+          const modelToSelect = defaultModelId || modelsResponse.models[0].id
+          store$.models.selected.set(modelToSelect)
+        }
+      } catch (error) {
+        setActionError(
+          error,
+          'Failed to refresh models',
+          store$.connection.error.set
+        )
+        throw error
+      } finally {
+        store$.models.isLoading.set(false)
       }
     },
 
@@ -55,39 +149,112 @@ export const actions = {
       await actions.connection.connect(serverUrl)
     },
 
-    refreshModels: async () => {
-      store$.models.isLoading.set(true)
-
+    initializeFromStorage: async () => {
       try {
-        await connectionService.refreshModels()
-        const state = connectionService.getState()
+        // Check if we have a persisted server URL
+        const serverUrl = store$.connection.serverUrl.get()
 
-        store$.connection.models.set(state.models)
-        store$.connection.defaultModels.set(state.defaultModels)
-        store$.models.available.set(state.models)
+        if (serverUrl) {
+          // Attempt to connect to the stored server URL
+          await actions.connection.connect(serverUrl)
+
+          // Load sessions and models in the background after successful connection
+          setTimeout(() => {
+            // Load sessions
+            actions.sessions.loadSessions().catch(error => {
+              console.warn(
+                'Failed to load sessions during initialization:',
+                error
+              )
+            })
+
+            // Refresh models to ensure we have the latest model data
+            actions.connection.refreshModels().catch(error => {
+              console.warn(
+                'Failed to refresh models during initialization:',
+                error
+              )
+            })
+          }, 0)
+        }
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Failed to refresh models'
-        store$.connection.error.set(errorMessage)
-        throw error
-      } finally {
-        store$.models.isLoading.set(false)
+        console.warn('Failed to initialize connection from storage:', error)
       }
     },
 
-    initializeFromStorage: async () => {
-      try {
-        await connectionService.initializeFromStorage()
-        const state = connectionService.getState()
+    // Health monitoring
+    startHealthMonitoring: () => {
+      actions.connection.stopHealthMonitoring()
 
-        store$.connection.status.set(state.status)
-        store$.connection.serverUrl.set(state.serverUrl || '')
-        store$.connection.models.set(state.models)
-        store$.connection.defaultModels.set(state.defaultModels)
-        store$.connection.error.set(state.error)
-        store$.models.available.set(state.models)
+      const interval = setInterval(() => {
+        actions.connection.performHealthCheck()
+      }, 300000) // 5 minutes
+
+      store$.connection.healthCheckInterval.set(interval)
+    },
+
+    stopHealthMonitoring: () => {
+      const interval = store$.connection.healthCheckInterval.get()
+      if (interval) {
+        clearInterval(interval)
+        store$.connection.healthCheckInterval.set(null)
+      }
+    },
+
+    performHealthCheck: async () => {
+      if (store$.connection.status.get() !== 'connected') {
+        return
+      }
+
+      try {
+        const healthCheck = await openCodeService.checkHealth()
+
+        if (healthCheck.status === 'error') {
+          store$.connection.status.set('error')
+          store$.connection.error.set(
+            healthCheck.error || 'Health check failed'
+          )
+          actions.connection.scheduleReconnect()
+        }
       } catch (error) {
-        console.warn('Failed to initialize connection from storage:', error)
+        const errorMessage =
+          error instanceof Error ? error.message : 'Health check failed'
+        store$.connection.status.set('error')
+        store$.connection.error.set(errorMessage)
+        actions.connection.scheduleReconnect()
+      }
+    },
+
+    // Reconnection logic
+    scheduleReconnect: () => {
+      const retryCount = store$.connection.retryCount.get()
+      const existingTimeout = store$.connection.reconnectTimeout.get()
+
+      if (existingTimeout || retryCount >= 3) {
+        return
+      }
+
+      const delay = 2000 * Math.pow(2, retryCount) // Exponential backoff
+
+      const timeout = setTimeout(async () => {
+        store$.connection.reconnectTimeout.set(null)
+        store$.connection.retryCount.set(retryCount + 1)
+
+        try {
+          await actions.connection.reconnect()
+        } catch (error) {
+          console.error('Reconnection failed:', error)
+        }
+      }, delay)
+
+      store$.connection.reconnectTimeout.set(timeout)
+    },
+
+    stopReconnectAttempts: () => {
+      const timeout = store$.connection.reconnectTimeout.get()
+      if (timeout) {
+        clearTimeout(timeout)
+        store$.connection.reconnectTimeout.set(null)
       }
     },
   },
@@ -102,9 +269,11 @@ export const actions = {
         const sessions = await openCodeService.getSessions()
         store$.sessions.list.set(sessions)
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Failed to load sessions'
-        store$.sessions.error.set(errorMessage)
+        setActionError(
+          error,
+          'Failed to load sessions',
+          store$.sessions.error.set
+        )
         throw error
       } finally {
         store$.sessions.isLoading.set(false)
@@ -120,9 +289,11 @@ export const actions = {
         store$.sessions.current.set(session.id)
         return session
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Failed to create session'
-        store$.sessions.error.set(errorMessage)
+        setActionError(
+          error,
+          'Failed to create session',
+          store$.sessions.error.set
+        )
         throw error
       } finally {
         store$.sessions.isLoading.set(false)
@@ -152,9 +323,11 @@ export const actions = {
           return updated
         })
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Failed to delete session'
-        store$.sessions.error.set(errorMessage)
+        setActionError(
+          error,
+          'Failed to delete session',
+          store$.sessions.error.set
+        )
         throw error
       }
     },
@@ -170,9 +343,11 @@ export const actions = {
         const messages = await openCodeService.getMessages(sessionId)
         store$.messages.bySessionId[sessionId].set(messages)
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Failed to load messages'
-        store$.messages.error.set(errorMessage)
+        setActionError(
+          error,
+          'Failed to load messages',
+          store$.messages.error.set
+        )
         throw error
       } finally {
         store$.messages.isLoading.set(false)
@@ -186,7 +361,10 @@ export const actions = {
       providerId: string,
       mode = 'chat'
     ) => {
-      if (!connectionService.isReady()) {
+      if (
+        store$.connection.status.get() !== 'connected' ||
+        !openCodeService.isInitialized()
+      ) {
         throw new Error('Not connected to server')
       }
 
@@ -232,9 +410,11 @@ export const actions = {
 
         // The assistant response will come through SSE events
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Failed to send message'
-        store$.messages.error.set(errorMessage)
+        setActionError(
+          error,
+          'Failed to send message',
+          store$.messages.error.set
+        )
 
         // Update user message status to error
         store$.messages.bySessionId[sessionId].set(messages =>
@@ -290,13 +470,6 @@ export const actions = {
   models: {
     selectModel: (modelId: string) => {
       store$.models.selected.set(modelId)
-    },
-
-    setPreference: (key: string, value: string) => {
-      store$.models.preferences.set(prefs => ({
-        ...prefs,
-        [key]: value,
-      }))
     },
   },
 

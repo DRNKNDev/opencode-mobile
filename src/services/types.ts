@@ -52,21 +52,3 @@ export interface ConnectionStatus {
   error?: string
   models?: Model[]
 }
-
-export interface ModelPreferences {
-  defaultModel: string
-  lastUsedModel: string
-  providerPreferences: Record<string, string>
-}
-
-export interface CachedModels {
-  models: Model[]
-  lastUpdated: number
-  serverUrl: string
-}
-
-export interface UserPreferences {
-  selectedModel: string
-  theme: 'tokyonight-dark' | 'tokyonight-light'
-  hapticFeedback: boolean
-}

@@ -1,6 +1,11 @@
 import { computed } from '@legendapp/state'
 import { store$ } from './index'
-import type { Message, Session, Model } from '../services/types'
+import type {
+  Message,
+  Session,
+  Model,
+  ConnectionStatus,
+} from '../services/types'
 
 // Connection computed values
 export const isConnected = computed(
@@ -45,7 +50,7 @@ export const selectedModel = computed((): Model | null => {
 export const getDefaultModelForProvider = (
   providerId: string
 ): string | null => {
-  const defaultModels = store$.connection.defaultModels.get()
+  const defaultModels = store$.models.defaults.get()
   return defaultModels[providerId] || null
 }
 
@@ -123,12 +128,14 @@ export const availableProviders = computed((): string[] => {
 })
 
 // Connection status for UI
-export const connectionStatus = computed(() => ({
-  connected: isConnected.get(),
-  serverUrl: store$.connection.serverUrl.get(),
-  error: store$.connection.error.get(),
-  models: store$.connection.models.get(),
-}))
+export const connectionStatus = computed(
+  (): ConnectionStatus => ({
+    connected: isConnected.get(),
+    serverUrl: store$.connection.serverUrl.get(),
+    error: store$.connection.error.get() || undefined,
+    models: store$.models.available.get(),
+  })
+)
 
 // Grouped computed exports for convenience
 export const computed$ = {

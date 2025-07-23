@@ -1,7 +1,7 @@
 import { observable } from '@legendapp/state'
-import { syncObservable } from '@legendapp/state/sync'
 import { ObservablePersistMMKV } from '@legendapp/state/persist-plugins/mmkv'
-import type { Session, Message, Model } from '../services/types'
+import { syncObservable } from '@legendapp/state/sync'
+import type { Message, Model, Session } from '../services/types'
 
 export type ConnectionState =
   | 'disconnected'
@@ -13,10 +13,12 @@ export interface StoreState {
   connection: {
     status: ConnectionState
     serverUrl: string
-    models: Model[]
-    defaultModels: Record<string, string>
     error: string | null
     isLoading: boolean
+    lastConnected: Date | null
+    retryCount: number
+    healthCheckInterval: any
+    reconnectTimeout: any
   }
 
   theme: 'tokyonight-dark' | 'tokyonight-light'
@@ -37,8 +39,8 @@ export interface StoreState {
 
   models: {
     available: Model[]
+    defaults: Record<string, string>
     selected: string | null
-    preferences: Record<string, string>
     isLoading: boolean
   }
 }
@@ -47,10 +49,12 @@ export const store$ = observable<StoreState>({
   connection: {
     status: 'disconnected',
     serverUrl: '',
-    models: [],
-    defaultModels: {},
     error: null,
     isLoading: false,
+    lastConnected: null,
+    retryCount: 0,
+    healthCheckInterval: null,
+    reconnectTimeout: null,
   },
 
   theme: 'tokyonight-dark',
@@ -71,8 +75,8 @@ export const store$ = observable<StoreState>({
 
   models: {
     available: [],
+    defaults: {},
     selected: null,
-    preferences: {},
     isLoading: false,
   },
 })
@@ -85,9 +89,9 @@ syncObservable(store$.theme, {
   },
 })
 
-syncObservable(store$.models.preferences, {
+syncObservable(store$.models.selected, {
   persist: {
-    name: 'model-preferences',
+    name: 'selected-model',
     plugin: ObservablePersistMMKV,
   },
 })

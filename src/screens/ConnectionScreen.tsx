@@ -4,7 +4,6 @@ import { useWindowDimensions } from 'react-native'
 import { YStack, Input, Button, Text, Heading, Card } from 'tamagui'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { storage } from '../services/storage'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
@@ -14,8 +13,9 @@ export default function ConnectionScreen() {
   const router = useRouter()
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
+  const storedServerUrl = useSelector(store$.connection.serverUrl)
   const [serverUrl, setServerUrl] = useState(
-    storage.getServerUrl() || 'http://localhost:3000'
+    storedServerUrl || 'http://localhost:3000'
   )
 
   // LegendState integration

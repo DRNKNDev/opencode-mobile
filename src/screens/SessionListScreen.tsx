@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useSelector } from '@legendapp/state/react'
 import { MessageCircle } from '@tamagui/lucide-icons'
 import { useRouter } from 'expo-router'
@@ -34,6 +34,13 @@ export default function SessionListScreen() {
   const isRefreshing = isLoading
 
   const isTablet = width > 768
+
+  // Load sessions when component mounts and when connection becomes available
+  useEffect(() => {
+    if (connected) {
+      actions.sessions.loadSessions()
+    }
+  }, [connected])
 
   const createNewSession = async () => {
     if (!newSessionInput.trim()) return
