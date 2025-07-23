@@ -27,6 +27,7 @@ export interface StoreState {
     list: Session[]
     current: string | null
     isLoading: boolean
+    isCreating: boolean
     error: string | null
   }
 
@@ -63,6 +64,7 @@ export const store$ = observable<StoreState>({
     list: [],
     current: null,
     isLoading: false,
+    isCreating: false,
     error: null,
   },
 

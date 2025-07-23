@@ -281,7 +281,7 @@ export const actions = {
     },
 
     createSession: async () => {
-      store$.sessions.isLoading.set(true)
+      store$.sessions.isCreating.set(true)
 
       try {
         const session = await openCodeService.createSession()
@@ -296,7 +296,7 @@ export const actions = {
         )
         throw error
       } finally {
-        store$.sessions.isLoading.set(false)
+        store$.sessions.isCreating.set(false)
       }
     },
 
