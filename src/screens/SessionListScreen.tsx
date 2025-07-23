@@ -1,33 +1,34 @@
-import React, { useState, useEffect } from 'react'
+import { LegendList } from '@legendapp/list'
 import { useSelector } from '@legendapp/state/react'
 import { MessageCircle } from '@tamagui/lucide-icons'
 import { useRouter } from 'expo-router'
-import { useWindowDimensions, RefreshControl } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { RefreshControl, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { LegendList } from '@legendapp/list'
 import { Text, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { SessionCard } from '../components/session/SessionCard'
 import { Header } from '../components/ui/Header'
+import type { Session } from '../services/types'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
 import {
   isConnected,
+  selectedMode,
   selectedModel,
   sessionsSortedByTime,
 } from '../store/computed'
-import type { Session } from '../services/types'
 
 export default function SessionListScreen() {
   const router = useRouter()
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
   const [newSessionInput, setNewSessionInput] = useState('')
-  const [currentMode, setCurrentMode] = useState<'build' | 'plan'>('build')
 
   // LegendState integration
   const connected = useSelector(isConnected)
   const model = useSelector(selectedModel)
+  const currentMode = useSelector(selectedMode)
   const sessions = useSelector(sessionsSortedByTime)
   const isLoading = useSelector(store$.sessions.isLoading)
   const isCreating = useSelector(store$.sessions.isCreating)
@@ -118,7 +119,7 @@ export default function SessionListScreen() {
           color="$color11"
           textAlign="center"
         >
-          Start your first session in {currentMode} mode with{' '}
+          Start your first session in {currentMode?.name || 'build'} mode with{' '}
           {model?.name || 'AI'}
         </Text>
       </YStack>
@@ -151,10 +152,8 @@ export default function SessionListScreen() {
           onSubmit={createNewSession}
           onStop={() => {}}
           onModelSelect={handleModelSelect}
-          currentMode={currentMode}
-          onModeSelect={setCurrentMode}
           placeholder="What can I help you with?"
-          currentModel={model?.id || ''}
+          currentModel={model?.id || 'build'}
           disabled={!connected || isCreating}
           isStreaming={isCreating}
           size="$4"

@@ -10,7 +10,7 @@ import { useSelector } from '@legendapp/state/react'
 import type { InputProps } from 'tamagui'
 import { Button, Text, XStack, YStack } from 'tamagui'
 import { store$ } from '../../store'
-import { selectedModel } from '../../store/computed'
+import { selectedModel, selectedMode } from '../../store/computed'
 import { ModelSelector } from '../modals/ModelSelector'
 import { ModeSelector } from '../modals/ModeSelector'
 import { TextArea } from '../ui/TextArea'
@@ -21,8 +21,6 @@ export interface InputBarProps {
   onSubmit: () => void
   onStop: () => void
   onModelSelect?: (modelId: string) => void
-  currentMode?: 'build' | 'plan'
-  onModeSelect?: (mode: 'build' | 'plan') => void
   disabled?: boolean
   placeholder?: string
   isStreaming?: boolean
@@ -40,8 +38,6 @@ export function InputBar({
   onSubmit,
   onStop,
   onModelSelect,
-  currentMode = 'build',
-  onModeSelect,
   disabled = false,
   placeholder = 'Type a message...',
   isStreaming = false,
@@ -54,6 +50,7 @@ export function InputBar({
 }: InputBarProps) {
   const availableModels = useSelector(store$.models.available)
   const model = useSelector(selectedModel)
+  const currentMode = useSelector(selectedMode)
   const [showModelSelector, setShowModelSelector] = useState(false)
   const [showModeSelector, setShowModeSelector] = useState(false)
   const canSend = value.trim().length > 0 && !disabled
@@ -108,10 +105,12 @@ export function InputBar({
             }}
             aria-label="Select mode"
           >
-            {currentMode === 'build' ? (
+            {currentMode?.name === 'build' ? (
               <Code size={16} color="$blue10" />
-            ) : (
+            ) : currentMode?.name === 'plan' ? (
               <ListTodo size={16} color="$orange10" />
+            ) : (
+              <Code size={16} color="$blue10" />
             )}
           </Button>
 
@@ -162,11 +161,6 @@ export function InputBar({
       <ModeSelector
         open={showModeSelector}
         onOpenChange={setShowModeSelector}
-        selectedMode={currentMode}
-        onModeSelect={mode => {
-          onModeSelect?.(mode)
-          setShowModeSelector(false)
-        }}
       />
     </YStack>
   )
