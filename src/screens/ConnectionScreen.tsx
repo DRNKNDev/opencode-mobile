@@ -1,11 +1,14 @@
 import React, { useState } from 'react'
+import { useSelector } from '@legendapp/state/react'
 import { useWindowDimensions } from 'react-native'
 import { YStack, Input, Button, Text, Heading, Card } from 'tamagui'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { storage } from '../services/storage'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
-import { useConnectionContext } from '../contexts/ConnectionContext'
+import { store$ } from '../store'
+import { actions } from '../store/actions'
+import { isConnecting } from '../store/computed'
 
 export default function ConnectionScreen() {
   const router = useRouter()
@@ -14,17 +17,20 @@ export default function ConnectionScreen() {
   const [serverUrl, setServerUrl] = useState(
     storage.getServerUrl() || 'http://localhost:3000'
   )
-  const { connect, connectionState, isConnecting, error, clearError } =
-    useConnectionContext()
+
+  // LegendState integration
+  const connecting = useSelector(isConnecting)
+  const connectionState = useSelector(store$.connection)
+  const error = connectionState.error
 
   const isTablet = width > 768
 
   // Clear errors when URL changes
   React.useEffect(() => {
     if (error) {
-      clearError()
+      store$.connection.error.set(null)
     }
-  }, [serverUrl, error, clearError])
+  }, [serverUrl, error])
 
   const handleConnect = async () => {
     try {
@@ -32,17 +38,17 @@ export default function ConnectionScreen() {
       new URL(serverUrl)
 
       // Test actual connection to the server
-      await connect(serverUrl)
+      await actions.connection.connect(serverUrl)
 
       // Navigate to sessions screen on successful connection
       router.replace('/sessions')
     } catch (err) {
       console.error('Connection failed:', err)
-      // Error handling is now managed by the ConnectionContext
+      // Error handling is now managed by the store actions
     }
   }
 
-  if (isConnecting) {
+  if (connecting) {
     return (
       <YStack
         flex={1}

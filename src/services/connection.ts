@@ -23,7 +23,7 @@ class ConnectionService {
     retryCount: 0,
   }
 
-  private listeners: Array<(state: ConnectionState) => void> = []
+  private listeners: ((state: ConnectionState) => void)[] = []
   private healthCheckInterval: ReturnType<typeof setInterval> | null = null
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null
   private maxRetries = 3

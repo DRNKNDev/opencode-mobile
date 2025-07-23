@@ -1,4 +1,5 @@
 import { LegendList, LegendListRef } from '@legendapp/list'
+import { useSelector } from '@legendapp/state/react'
 import { ChevronDown } from '@tamagui/lucide-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -13,12 +14,17 @@ import { Button, Text, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { MessageBubble } from '../components/chat/MessageBubble'
 import { Header } from '../components/ui/Header'
-import { useConnectionContext } from '../contexts/ConnectionContext'
-import { useMessages } from '../hooks/useMessages'
-import { useModels } from '../hooks/useModels'
-import { useSSE } from '../hooks/useSSE'
-import { storage } from '../services/storage'
-import type { Message, Session } from '../services/types'
+import { store$ } from '../store'
+import { actions } from '../store/actions'
+import {
+  isConnected,
+  currentMessages,
+  currentSession,
+  selectedModel,
+  isSendingMessage,
+  getDefaultModelForProvider,
+} from '../store/computed'
+import type { Message } from '../services/types'
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -27,26 +33,19 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets()
   const listRef = useRef<LegendListRef>(null)
   const scrollButtonOpacity = useRef(new Animated.Value(0)).current
-  const [session, setSession] = useState<Session | null>(null)
   const [inputValue, setInputValue] = useState('')
   const [currentMode, setCurrentMode] = useState<'build' | 'plan'>('plan') // Start in plan mode to show todos
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isNearBottom, setIsNearBottom] = useState(true)
   const prevMessagesLength = useRef(0)
 
-  // Real hooks integration
-  const { isConnected } = useConnectionContext()
-  const {
-    messages,
-    sendMessage,
-    addMessage,
-    updateMessage,
-    isSending,
-    isLoading,
-  } = useMessages(id)
-  const { onMessageUpdate } = useSSE()
-  const { selectedModel, selectModel, availableModels, getProviderIdForModel } =
-    useModels()
+  // LegendState integration
+  const connected = useSelector(isConnected)
+  const messages = useSelector(currentMessages)
+  const session = useSelector(currentSession)
+  const model = useSelector(selectedModel)
+  const isSending = useSelector(isSendingMessage)
+  const isLoading = useSelector(store$.messages.isLoading)
 
   const isStreaming = isSending
 
@@ -63,29 +62,13 @@ export default function ChatScreen() {
     listRef.current?.scrollToEnd({ animated: true })
   }, [])
 
+  // Set current session and load messages when id changes
   useEffect(() => {
     if (id) {
-      loadSession(id)
+      actions.sessions.selectSession(id)
+      actions.messages.loadMessages(id)
     }
   }, [id])
-
-  // Connect SSE events to message state
-  useEffect(() => {
-    if (!id) return
-
-    const unsubscribe = onMessageUpdate((message: Message) => {
-      if (message.sessionId === id) {
-        // Check if this is a streaming update or a new message
-        if (message.role === 'assistant') {
-          updateMessage(message.id, message)
-        } else {
-          addMessage(message)
-        }
-      }
-    })
-
-    return unsubscribe
-  }, [id, onMessageUpdate, addMessage, updateMessage])
 
   // Auto-scroll when new assistant messages arrive (only if user was already near bottom)
   useEffect(() => {
@@ -104,12 +87,6 @@ export default function ChatScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortedMessages, scrollToBottom])
-
-  const loadSession = (sessionId: string) => {
-    const sessions = storage.getSessions()
-    const foundSession = sessions.find(s => s.id === sessionId)
-    setSession(foundSession || null)
-  }
 
   const handleScroll = useCallback(
     (event: {
@@ -142,7 +119,7 @@ export default function ChatScreen() {
   )
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !id) return
+    if (!inputValue.trim() || !id || !model) return
 
     const messageContent = inputValue.trim()
     setInputValue('')
@@ -151,11 +128,20 @@ export default function ChatScreen() {
     setTimeout(() => scrollToBottom(), 100)
 
     try {
-      const providerId = getProviderIdForModel(selectedModel) || 'anthropic'
-      await sendMessage(messageContent, selectedModel, providerId, currentMode)
+      const providerId =
+        model.providerId ||
+        getDefaultModelForProvider(model.provider) ||
+        'anthropic'
+      await actions.messages.sendMessage(
+        id,
+        messageContent,
+        model.id,
+        providerId,
+        currentMode
+      )
     } catch (err) {
       console.error('Failed to send message:', err)
-      // Error handling is managed by useMessages hook
+      // Error handling is managed by store actions
     }
   }
 
@@ -166,7 +152,7 @@ export default function ChatScreen() {
   }
 
   const handleModelSelect = (modelId: string) => {
-    selectModel(modelId)
+    actions.models.selectModel(modelId)
   }
 
   const renderMessage = ({ item }: { item: Message }) => (
@@ -191,7 +177,7 @@ export default function ChatScreen() {
           title={session?.title || 'Chat'}
           showBackButton={true}
           onBackPress={() => router.back()}
-          connected={isConnected}
+          connected={connected}
           showBorder={true}
         />
 
@@ -239,7 +225,8 @@ export default function ChatScreen() {
                 textAlign="center"
                 maxWidth={400}
               >
-                Type a message below to begin chatting with {selectedModel}
+                Type a message below to begin chatting with{' '}
+                {model?.name || 'AI'}
               </Text>
             </YStack>
           ) : (
@@ -317,7 +304,7 @@ export default function ChatScreen() {
             currentMode={currentMode}
             onModeSelect={setCurrentMode}
             isStreaming={isStreaming}
-            currentModel={selectedModel}
+            currentModel={model?.id || ''}
             placeholder="Type a message..."
             size="$2"
             borderWidth={0}

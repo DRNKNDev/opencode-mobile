@@ -1,14 +1,23 @@
 import { Stack } from 'expo-router'
+import { useSelector } from '@legendapp/state/react'
 import { TamaguiProvider } from '@tamagui/core'
 import { PortalProvider } from '@tamagui/portal'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import config from '../tamagui.config'
-import { ThemeProvider, useThemeContext } from '../src/contexts/ThemeContext'
-import { ConnectionProvider } from '../src/contexts/ConnectionContext'
+import { store$ } from '../src/store'
+import { actions } from '../src/store/actions'
 import { ThemeStatusBar } from '../src/components/ui/ThemeStatusBar'
+import { useEffect } from 'react'
+// Import sync service to initialize it
+import '../src/store/sync'
 
 function AppContent() {
-  const { currentTheme } = useThemeContext()
+  const currentTheme = useSelector(store$.theme)
+
+  // Initialize connection from storage on app start
+  useEffect(() => {
+    actions.connection.initializeFromStorage()
+  }, [])
 
   return (
     <TamaguiProvider config={config} defaultTheme={currentTheme}>
@@ -32,11 +41,7 @@ function AppContent() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <ConnectionProvider>
-        <ThemeProvider>
-          <AppContent />
-        </ThemeProvider>
-      </ConnectionProvider>
+      <AppContent />
     </SafeAreaProvider>
   )
 }
