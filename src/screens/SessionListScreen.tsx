@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { useSelector } from '@legendapp/state/react'
 import { MessageCircle } from '@tamagui/lucide-icons'
 import { useRouter } from 'expo-router'
-import { FlatList, useWindowDimensions, RefreshControl } from 'react-native'
+import { useWindowDimensions, RefreshControl } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { LegendList } from '@legendapp/list'
 import { Text, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { SessionCard } from '../components/session/SessionCard'
@@ -172,11 +173,12 @@ export default function SessionListScreen() {
         {sessions.length === 0 ? (
           renderEmptyState()
         ) : (
-          <FlatList
+          <LegendList
             data={sessions}
             renderItem={renderSession}
             keyExtractor={item => item.id}
             showsVerticalScrollIndicator={false}
+            recycleItems
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}
