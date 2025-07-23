@@ -1,4 +1,3 @@
-import React, { useEffect, useMemo, useState } from 'react'
 import {
   ChevronDown,
   ChevronUp,
@@ -7,6 +6,7 @@ import {
   GitBranch,
 } from '@tamagui/lucide-icons'
 import { diffLines } from 'diff'
+import React, { useEffect, useMemo, useState } from 'react'
 import { ScrollView, StyleSheet } from 'react-native'
 import CodeHighlighter from 'react-native-code-highlighter'
 import { atomOneDarkReasonable } from 'react-syntax-highlighter/dist/esm/styles/hljs'
@@ -483,7 +483,7 @@ export function DiffViewer({
 
       {/* Content */}
       {!isCollapsed && (
-        <YStack minHeight={250} backgroundColor="$background">
+        <YStack maxHeight={250} backgroundColor="$background">
           {viewMode === 'unified' && renderUnifiedDiff()}
           {viewMode === 'split' && renderSplitDiff()}
           {viewMode === 'before' && renderSingleView(oldString, 'Before')}
