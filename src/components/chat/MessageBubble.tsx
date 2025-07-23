@@ -19,12 +19,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const isInPlanMode = isPlanMode(message)
 
   const shouldRenderPart = (part: MessagePart): boolean => {
-    // Filter out synthetic system reminder parts
-    if (
-      part.synthetic &&
-      part.type === 'text' &&
-      part.content?.includes('<system-reminder>')
-    ) {
+    // Filter out all synthetic text parts (system reminders, tool execution descriptions, file contents, etc.)
+    if (part.synthetic && part.type === 'text') {
       return false
     }
     return true
@@ -156,7 +152,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     <YStack marginBottom="$3" gap="$1">
       {message.parts && message.parts.length > 0 ? (
         <>
-          {/* Render all parts in original sequential order, filtering out synthetic system reminders */}
+          {/* Render all parts in original sequential order, filtering out all synthetic text parts */}
           {message.parts
             .filter(shouldRenderPart)
             .map((part, index) => renderPartWithLayout(part, index))}
