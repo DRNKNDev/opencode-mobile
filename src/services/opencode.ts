@@ -273,6 +273,19 @@ class OpenCodeService {
                   part.type === 'text'
                     ? (part as Opencode.TextPart).synthetic
                     : undefined,
+                // File-specific properties
+                mime:
+                  part.type === 'file'
+                    ? (part as Opencode.FilePart).mime
+                    : undefined,
+                filename:
+                  part.type === 'file'
+                    ? (part as Opencode.FilePart).filename
+                    : undefined,
+                url:
+                  part.type === 'file'
+                    ? (part as Opencode.FilePart).url
+                    : undefined,
               }
 
               debug.success(`Created mapped part ${partIndex}:`, mappedPart)
@@ -389,7 +402,9 @@ class OpenCodeService {
     }
   }
 
-  private mapPartType(partType: string): 'text' | 'code' | 'tool_execution' {
+  private mapPartType(
+    partType: string
+  ): 'text' | 'code' | 'tool_execution' | 'file' {
     debug.log('mapPartType called with:', partType)
 
     switch (partType) {
@@ -400,8 +415,8 @@ class OpenCodeService {
         debug.success('Mapped to: tool_execution')
         return 'tool_execution'
       case 'file':
-        debug.success('Mapped to: code')
-        return 'code'
+        debug.success('Mapped to: file')
+        return 'file'
       default:
         debug.warn('Unknown part type, defaulting to: text')
         return 'text'
