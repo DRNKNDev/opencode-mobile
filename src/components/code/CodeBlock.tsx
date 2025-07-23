@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Copy } from '@tamagui/lucide-icons'
+import React, { useEffect, useMemo, useState } from 'react'
 import { ScrollView, StyleSheet } from 'react-native'
 import CodeHighlighter from 'react-native-code-highlighter'
 import { atomOneDarkReasonable } from 'react-syntax-highlighter/dist/esm/styles/hljs'
@@ -16,6 +16,7 @@ export function CodeBlock({
   copyable = true,
   collapsible = false,
   title,
+  showHeader = true,
 }: CodeBlockProps) {
   const [isCollapsed, setIsCollapsed] = useState(collapsible)
   const [isLanguageLoaded, setIsLanguageLoaded] = useState(false)
@@ -66,47 +67,49 @@ export function CodeBlock({
       overflow="hidden"
     >
       {/* Header */}
-      <XStack
-        justifyContent="space-between"
-        alignItems="center"
-        padding="$3"
-        backgroundColor="$backgroundPress"
-        borderBottomWidth={0.5}
-        borderBottomColor="$borderColor"
-      >
-        <XStack alignItems="center" gap="$2">
-          <Text fontSize="$3" fontWeight="600" color="$color">
-            {title || filename || `${language} code`}
-          </Text>
-          {lines.length > 1 && (
-            <Text fontSize="$2" color="$color11">
-              ({lines.length} lines)
+      {showHeader && (
+        <XStack
+          justifyContent="space-between"
+          alignItems="center"
+          padding="$3"
+          backgroundColor="$backgroundPress"
+          borderBottomWidth={0.5}
+          borderBottomColor="$borderColor"
+        >
+          <XStack alignItems="center" gap="$2">
+            <Text fontSize="$3" fontWeight="600" color="$color">
+              {title || filename || `${language} code`}
             </Text>
-          )}
-        </XStack>
+            {lines.length > 1 && (
+              <Text fontSize="$2" color="$color11">
+                ({lines.length} lines)
+              </Text>
+            )}
+          </XStack>
 
-        <XStack alignItems="center" gap="$2">
-          {copyable && (
-            <Button
-              size="$2"
-              chromeless
-              icon={Copy}
-              onPress={() => copyToClipboard(code)}
-              color="$color11"
-            />
-          )}
+          <XStack alignItems="center" gap="$2">
+            {copyable && (
+              <Button
+                size="$2"
+                chromeless
+                icon={Copy}
+                onPress={() => copyToClipboard(code)}
+                color="$color11"
+              />
+            )}
 
-          {collapsible && (
-            <Button
-              size="$2"
-              chromeless
-              icon={isCollapsed ? ChevronDown : ChevronUp}
-              onPress={() => setIsCollapsed(!isCollapsed)}
-              color="$color11"
-            />
-          )}
+            {collapsible && (
+              <Button
+                size="$2"
+                chromeless
+                icon={isCollapsed ? ChevronDown : ChevronUp}
+                onPress={() => setIsCollapsed(!isCollapsed)}
+                color="$color11"
+              />
+            )}
+          </XStack>
         </XStack>
-      </XStack>
+      )}
 
       {/* Code Content */}
       {!isCollapsed && (
@@ -141,7 +144,14 @@ export function CodeBlock({
             </ScrollView>
           ) : (
             // Fallback implementation
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                ...codeStyles.codeContainer,
+                backgroundColor: theme.background.val,
+              }}
+            >
               <YStack padding="$4" backgroundColor="$background">
                 {showLineNumbers ? (
                   <YStack>
