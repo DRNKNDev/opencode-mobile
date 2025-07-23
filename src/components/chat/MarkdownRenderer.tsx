@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react'
 import Markdown from 'react-native-markdown-display'
-import { useTheme } from 'tamagui'
-import { CodeBlock } from '../code/CodeBlock'
+import { getTokens, ScrollView, Text, useTheme } from 'tamagui'
 
 export interface MarkdownRendererProps {
   content: string
@@ -9,24 +8,42 @@ export interface MarkdownRendererProps {
 
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
   const theme = useTheme()
+  const tokens = getTokens()
 
   const customRules = useMemo(
     () => ({
       // Handle fenced code blocks (```language)
       fence: (node: any) => {
         return (
-          <CodeBlock
-            code={node.content}
-            language={node.info || 'text'}
-            showHeader={false}
-          />
+          <ScrollView
+            maxHeight={200}
+            backgroundColor="$background"
+            marginVertical="$2"
+            padding="$2"
+            borderRadius="$2"
+            borderWidth={0.5}
+            borderColor="$borderColor"
+          >
+            <Text fontSize="$2" fontFamily="$mono" color="$color12">
+              {node.content}
+            </Text>
+          </ScrollView>
         )
       },
 
       // Handle indented code blocks
       code_block: (node: any) => {
         return (
-          <CodeBlock code={node.content} language="text" showHeader={false} />
+          <ScrollView
+            maxHeight={200}
+            backgroundColor="$background"
+            padding="$2"
+            borderRadius="$2"
+          >
+            <Text fontSize="$2" fontFamily="$mono" color="$color12">
+              {node.content}
+            </Text>
+          </ScrollView>
         )
       },
     }),
@@ -37,47 +54,47 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     () => ({
       body: {
         fontSize: theme.fontSize4?.val,
-        lineHeight: theme.lineHeight4?.val,
+        lineHeight: tokens.size['$1.5'].val,
         color: theme.color?.val,
       },
       heading1: {
         fontSize: theme.fontSize6?.val,
-        lineHeight: theme.lineHeight6?.val,
+        lineHeight: tokens.size.$2.val,
         fontWeight: 'bold' as const,
         color: theme.color?.val,
         marginVertical: 8,
       },
       heading2: {
         fontSize: theme.fontSize5?.val,
-        lineHeight: theme.lineHeight5?.val,
+        lineHeight: tokens.size.$2.val,
         fontWeight: 'bold' as const,
         color: theme.color?.val,
         marginVertical: 6,
       },
       heading3: {
         fontSize: theme.fontSize4?.val,
-        lineHeight: theme.lineHeight4?.val,
+        lineHeight: tokens.size['$1.5'].val,
         fontWeight: 'bold' as const,
         color: theme.color?.val,
         marginVertical: 4,
       },
       heading4: {
         fontSize: theme.fontSize4?.val,
-        lineHeight: theme.lineHeight4?.val,
+        lineHeight: tokens.size['$1.5'].val,
         fontWeight: 'bold' as const,
         color: theme.color?.val,
         marginVertical: 4,
       },
       heading5: {
         fontSize: theme.fontSize3?.val,
-        lineHeight: theme.lineHeight3?.val,
+        lineHeight: tokens.size.$1.val,
         fontWeight: 'bold' as const,
         color: theme.color?.val,
         marginVertical: 2,
       },
       heading6: {
         fontSize: theme.fontSize2?.val,
-        lineHeight: theme.lineHeight2?.val,
+        lineHeight: tokens.size.$1.val,
         fontWeight: 'bold' as const,
         color: theme.color?.val,
         marginVertical: 2,
