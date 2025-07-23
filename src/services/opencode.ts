@@ -269,6 +269,10 @@ class OpenCodeService {
                   part.type === 'tool'
                     ? (part as Opencode.ToolPart).state
                     : undefined,
+                synthetic:
+                  part.type === 'text'
+                    ? (part as Opencode.TextPart).synthetic
+                    : undefined,
               }
 
               debug.success(`Created mapped part ${partIndex}:`, mappedPart)
