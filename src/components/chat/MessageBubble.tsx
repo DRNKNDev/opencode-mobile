@@ -4,10 +4,11 @@ import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 import type { Message, MessagePart } from '../../services/types'
 import type { ToolPart } from '../../types/tools'
 import { debug } from '../../utils/debug'
-import { isPlanMode, formatMessageTime } from '../../utils/planMode'
+import { formatMessageTime, isPlanMode } from '../../utils/planMode'
 import { CodeBlock } from '../code/CodeBlock'
 import { ToolExecutionCard } from '../tools/ToolExecutionCard'
 import { AttachmentRenderer } from './AttachmentRenderer'
+import { MarkdownRenderer } from './MarkdownRenderer'
 
 export interface MessageBubbleProps {
   message: Message
@@ -102,18 +103,18 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         return (
           <Card
             key={index}
-            padding="$3"
+            padding={isUser ? '$3' : '$0'}
             backgroundColor={isUser ? '$blue10' : 'transparent'}
             borderRadius="$2"
             maxWidth="100%"
           >
-            <Text
-              color={isUser ? 'white' : '$color'}
-              fontSize="$4"
-              lineHeight="$4"
-            >
-              {part.content}
-            </Text>
+            {isUser ? (
+              <Text color="white" fontSize="$4" lineHeight="$4">
+                {part.content}
+              </Text>
+            ) : (
+              <MarkdownRenderer content={part.content} />
+            )}
           </Card>
         )
     }
@@ -202,18 +203,18 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             alignItems={isUser ? 'flex-end' : 'flex-start'}
           >
             <Card
-              padding="$3"
+              padding={isUser ? '$3' : '$0'}
               backgroundColor={isUser ? '$blue10' : 'transparent'}
               borderRadius="$2"
               maxWidth="100%"
             >
-              <Text
-                color={isUser ? 'white' : '$color'}
-                fontSize="$4"
-                lineHeight="$4"
-              >
-                {message.content}
-              </Text>
+              {isUser ? (
+                <Text color="white" fontSize="$4" lineHeight="$4">
+                  {message.content}
+                </Text>
+              ) : (
+                <MarkdownRenderer content={message.content} />
+              )}
               <XStack
                 justifyContent={isUser ? 'flex-end' : 'flex-start'}
                 marginTop="$1"
