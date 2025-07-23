@@ -2,8 +2,10 @@ import { RefreshCw, X } from '@tamagui/lucide-icons'
 import { RadioGroup } from '@tamagui/radio-group'
 import { Sheet } from '@tamagui/sheet'
 import React, { useState } from 'react'
+import { useSelector } from '@legendapp/state/react'
 import { Button, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
-import { useModels } from '../../hooks/useModels'
+import { store$ } from '../../store'
+import { actions } from '../../store/actions'
 import type { Model } from '../../services/types'
 
 export interface ModelSelectorProps {
@@ -19,8 +21,10 @@ export function ModelSelector({
   selectedModel,
   onModelSelect,
 }: ModelSelectorProps) {
-  const { availableModels, defaultModels, isLoading, error, refreshModels } =
-    useModels()
+  const availableModels = useSelector(store$.models.available)
+  const defaultModels = useSelector(store$.connection.defaultModels)
+  const isLoading = useSelector(store$.models.isLoading)
+  const error = useSelector(store$.connection.error)
   const [instanceId] = useState(() =>
     Math.random().toString(36).substring(2, 9)
   )
@@ -36,9 +40,9 @@ export function ModelSelector({
 
   const handleRefresh = async () => {
     try {
-      await refreshModels()
+      await actions.connection.refreshModels()
     } catch (err) {
-      // Error is handled by the hook
+      // Error is handled by the store actions
       console.error('Failed to refresh models:', err)
     }
   }

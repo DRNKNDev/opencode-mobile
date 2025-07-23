@@ -6,9 +6,11 @@ import {
   StopCircle,
 } from '@tamagui/lucide-icons'
 import React, { useState } from 'react'
+import { useSelector } from '@legendapp/state/react'
 import type { InputProps } from 'tamagui'
 import { Button, Text, XStack, YStack } from 'tamagui'
-import { useModels } from '../../hooks/useModels'
+import { store$ } from '../../store'
+import { selectedModel } from '../../store/computed'
 import { ModelSelector } from '../modals/ModelSelector'
 import { ModeSelector } from '../modals/ModeSelector'
 import { TextArea } from '../ui/TextArea'
@@ -50,17 +52,18 @@ export function InputBar({
   paddingHorizontal,
   paddingVertical,
 }: InputBarProps) {
-  const { availableModels, selectedModel } = useModels()
+  const availableModels = useSelector(store$.models.available)
+  const model = useSelector(selectedModel)
   const [showModelSelector, setShowModelSelector] = useState(false)
   const [showModeSelector, setShowModeSelector] = useState(false)
   const canSend = value.trim().length > 0 && !disabled
 
-  // Use currentModel prop if provided, otherwise fall back to selectedModel from hook
-  const effectiveModel = currentModel || selectedModel
+  // Use currentModel prop if provided, otherwise fall back to selectedModel from store
+  const effectiveModel = currentModel || model?.id || ''
 
   const getModelName = (modelId: string): string => {
-    const model = availableModels.find(m => m.id === modelId)
-    return model?.name || modelId
+    const foundModel = availableModels.find(m => m.id === modelId)
+    return foundModel?.name || modelId
   }
 
   const handleSubmit = () => {

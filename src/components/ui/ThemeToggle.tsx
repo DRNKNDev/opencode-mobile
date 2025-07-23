@@ -1,10 +1,12 @@
 import React from 'react'
+import { useSelector } from '@legendapp/state/react'
 import { Button, Text } from 'tamagui'
 import { Moon, Sun } from '@tamagui/lucide-icons'
-import { useThemeContext } from '../../contexts/ThemeContext'
+import { store$ } from '../../store'
+import { actions } from '../../store/actions'
 
 export function ThemeToggle() {
-  const { currentTheme, toggleTheme } = useThemeContext()
+  const currentTheme = useSelector(store$.theme)
   const isDark = currentTheme === 'tokyonight-dark'
 
   return (
@@ -12,7 +14,7 @@ export function ThemeToggle() {
       size="$3"
       chromeless
       icon={isDark ? Sun : Moon}
-      onPress={toggleTheme}
+      onPress={actions.theme.toggle}
       pressStyle={{
         backgroundColor: '$backgroundPress',
       }}
