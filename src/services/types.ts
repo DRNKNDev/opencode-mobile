@@ -28,12 +28,16 @@ export interface Message {
 }
 
 export interface MessagePart {
-  type: 'text' | 'code' | 'tool_execution'
+  type: 'text' | 'code' | 'tool_execution' | 'file'
   content: string
   language?: string
   toolName?: string
   toolResult?: any
   synthetic?: boolean
+  // File-specific properties
+  mime?: string
+  filename?: string
+  url?: string
 }
 
 export interface Model {
