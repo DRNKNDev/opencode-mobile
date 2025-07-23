@@ -6,6 +6,7 @@ import type {
   Model,
   ConnectionStatus,
 } from '../services/types'
+import type { Mode } from '../components/modals/ModeSelector'
 
 // Connection computed values
 export const isConnected = computed(
@@ -44,6 +45,18 @@ export const selectedModel = computed((): Model | null => {
   const modelId = store$.models.selected.get()
   const models = store$.models.available.get()
   return models.find(m => m.id === modelId) || null
+})
+
+// Selected mode info
+export const selectedMode = computed((): Mode | null => {
+  const modeName = store$.modes.selected.get()
+  const modes = store$.modes.available.get()
+  return modes.find(m => m.name === modeName) || null
+})
+
+// Available modes
+export const availableModes = computed((): Mode[] => {
+  return store$.modes.available.get()
 })
 
 // Default model for a provider
@@ -147,6 +160,8 @@ export const computed$ = {
   currentMessages,
   currentSession,
   selectedModel,
+  selectedMode,
+  availableModes,
   modelsByProvider,
   isDarkTheme,
   isLightTheme,

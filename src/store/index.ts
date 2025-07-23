@@ -2,6 +2,7 @@ import { observable } from '@legendapp/state'
 import { ObservablePersistMMKV } from '@legendapp/state/persist-plugins/mmkv'
 import { syncObservable } from '@legendapp/state/sync'
 import type { Message, Model, Session } from '../services/types'
+import type { Mode } from '../components/modals/ModeSelector'
 
 export type ConnectionState =
   | 'disconnected'
@@ -44,6 +45,13 @@ export interface StoreState {
     selected: string | null
     isLoading: boolean
   }
+
+  modes: {
+    available: Mode[]
+    selected: string | null
+    isLoading: boolean
+    error: string | null
+  }
 }
 
 export const store$ = observable<StoreState>({
@@ -81,6 +89,13 @@ export const store$ = observable<StoreState>({
     selected: null,
     isLoading: false,
   },
+
+  modes: {
+    available: [],
+    selected: null,
+    isLoading: false,
+    error: null,
+  },
 })
 
 // Setup persistence for relevant state
@@ -108,6 +123,13 @@ syncObservable(store$.sessions, {
 syncObservable(store$.connection.serverUrl, {
   persist: {
     name: 'server-url',
+    plugin: ObservablePersistMMKV,
+  },
+})
+
+syncObservable(store$.modes.selected, {
+  persist: {
+    name: 'selected-mode',
     plugin: ObservablePersistMMKV,
   },
 })
