@@ -1,7 +1,7 @@
 import { RefreshCw, X } from '@tamagui/lucide-icons'
 import { RadioGroup } from '@tamagui/radio-group'
 import { Sheet } from '@tamagui/sheet'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useSelector } from '@legendapp/state/react'
 import { Button, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
 import { store$ } from '../../store'
@@ -22,12 +22,21 @@ export function ModelSelector({
   onModelSelect,
 }: ModelSelectorProps) {
   const availableModels = useSelector(store$.models.available)
-  const defaultModels = useSelector(store$.connection.defaultModels)
+  const defaultModels = useSelector(store$.models.defaults)
   const isLoading = useSelector(store$.models.isLoading)
   const error = useSelector(store$.connection.error)
   const [instanceId] = useState(() =>
     Math.random().toString(36).substring(2, 9)
   )
+
+  // Load models when modal opens if not already loaded
+  useEffect(() => {
+    if (open && availableModels.length === 0 && !isLoading) {
+      actions.connection.refreshModels().catch((error: Error) => {
+        console.warn('Failed to refresh models in ModelSelector:', error)
+      })
+    }
+  }, [open, availableModels.length, isLoading])
 
   const handleModelSelect = (modelId: string) => {
     onModelSelect(modelId)
