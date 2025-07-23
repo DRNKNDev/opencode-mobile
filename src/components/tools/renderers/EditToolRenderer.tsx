@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Copy, FileEdit, GitBranch, Eye } from '@tamagui/lucide-icons'
-import { Button, Text, XStack, YStack } from 'tamagui'
+import { Button, Text, XStack, YStack, ScrollView } from 'tamagui'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
 import type { ToolPartRendererProps } from '../../../types/tools'
 import { detectLanguage } from '../../../utils/languageDetection'
@@ -137,15 +137,20 @@ export function EditToolRenderer({ tool, isExpanded }: EditToolRendererProps) {
           <Text fontSize="$2" color="$color11">
             Result:
           </Text>
-          <Text
-            fontSize="$3"
-            color={tool.state.status === 'completed' ? '$green11' : '$red11'}
+          <ScrollView
+            maxHeight={200}
             backgroundColor="$background"
             padding="$2"
             borderRadius="$2"
           >
-            {tool.state.output}
-          </Text>
+            <Text
+              fontSize="$2"
+              fontFamily="$mono"
+              color={tool.state.status === 'completed' ? '$green11' : '$red11'}
+            >
+              {tool.state.output}
+            </Text>
+          </ScrollView>
         </YStack>
       )}
     </YStack>
