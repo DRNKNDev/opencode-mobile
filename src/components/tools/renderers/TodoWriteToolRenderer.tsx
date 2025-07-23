@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   CheckCircle,
   Circle,
@@ -7,6 +6,7 @@ import {
   ListTodo,
   X,
 } from '@tamagui/lucide-icons'
+import React from 'react'
 import { Button, Text, XStack, YStack } from 'tamagui'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
 import type { TodoItem } from '../../../types/todo'
@@ -96,7 +96,7 @@ export function TodoWriteToolRenderer({
           </XStack>
 
           <YStack
-            gap="$1"
+            gap="$2"
             backgroundColor="$background"
             padding="$2"
             borderRadius="$2"
@@ -118,23 +118,6 @@ export function TodoWriteToolRenderer({
               </XStack>
             ))}
           </YStack>
-        </YStack>
-      )}
-
-      {tool.state.output && (
-        <YStack gap="$2">
-          <Text fontSize="$2" color="$color11">
-            Result:
-          </Text>
-          <Text
-            fontSize="$3"
-            color={tool.state.status === 'completed' ? '$green11' : '$red11'}
-            backgroundColor="$background"
-            padding="$2"
-            borderRadius="$2"
-          >
-            {tool.state.output}
-          </Text>
         </YStack>
       )}
 
