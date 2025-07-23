@@ -6,21 +6,3 @@ export const APP_CONFIG = {
   maxSessions: 100,
   animationDuration: 200,
 } as const
-
-export const STORAGE_KEYS = {
-  serverUrl: 'opencode_server_url',
-  sessions: 'opencode_sessions',
-  currentSession: 'opencode_current_session',
-  selectedModel: 'opencode_selected_model',
-  userPreferences: 'opencode_user_preferences',
-  cachedModels: 'opencode_cached_models',
-  modelPreferences: 'opencode_model_preferences',
-} as const
-
-export const API_ENDPOINTS = {
-  health: '/health',
-  models: '/models',
-  sessions: '/sessions',
-  messages: '/messages',
-  stream: '/stream',
-} as const

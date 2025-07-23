@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'expo-router'
+import { useSelector } from '@legendapp/state/react'
 import { LoadingScreen } from '../src/components/ui/LoadingScreen'
-import { storage } from '../src/services/storage'
+import { store$ } from '../src/store'
 
 export default function Index() {
   const router = useRouter()
   const [isNavigating, setIsNavigating] = useState(false)
+  const serverUrl = useSelector(store$.connection.serverUrl)
 
   useEffect(() => {
     // Add a small delay to ensure navigation is ready
@@ -15,8 +17,6 @@ export default function Index() {
       setIsNavigating(true)
 
       // Check if user has a server URL configured
-      const serverUrl = storage.getServerUrl()
-
       if (serverUrl) {
         // Navigate to sessions if already configured
         router.replace('/sessions')
@@ -27,7 +27,7 @@ export default function Index() {
     }, 100) // Small delay to ensure navigation is mounted
 
     return () => clearTimeout(timer)
-  }, [router, isNavigating])
+  }, [router, isNavigating, serverUrl])
 
   return <LoadingScreen message="Initializing Patjoe..." />
 }
