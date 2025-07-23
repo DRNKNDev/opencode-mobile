@@ -33,6 +33,7 @@ export interface MessagePart {
   language?: string
   toolName?: string
   toolResult?: any
+  synthetic?: boolean
 }
 
 export interface Model {
