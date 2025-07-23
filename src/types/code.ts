@@ -7,6 +7,7 @@ export interface CodeBlockProps {
   copyable?: boolean
   collapsible?: boolean
   title?: string
+  showHeader?: boolean
 }
 
 export interface DiffViewerProps {
