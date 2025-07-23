@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useSelector } from '@legendapp/state/react'
 import { MessageCircle } from '@tamagui/lucide-icons'
 import { useRouter } from 'expo-router'
 import { FlatList, useWindowDimensions, RefreshControl } from 'react-native'
@@ -7,9 +8,13 @@ import { Text, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { SessionCard } from '../components/session/SessionCard'
 import { Header } from '../components/ui/Header'
-import { useConnectionContext } from '../contexts/ConnectionContext'
-import { useModels } from '../hooks/useModels'
-import { useSessions } from '../hooks/useSessions'
+import { store$ } from '../store'
+import { actions } from '../store/actions'
+import {
+  isConnected,
+  selectedModel,
+  sessionsSortedByTime,
+} from '../store/computed'
 import type { Session } from '../services/types'
 
 export default function SessionListScreen() {
@@ -19,21 +24,14 @@ export default function SessionListScreen() {
   const [newSessionInput, setNewSessionInput] = useState('')
   const [currentMode, setCurrentMode] = useState<'build' | 'plan'>('build')
 
-  // Use our custom hooks
-  const { isConnected } = useConnectionContext()
-  const { selectedModel, selectModel } = useModels()
-  const {
-    sessions,
-    isLoading,
-    isRefreshing,
-    isCreating,
-    isDeleting,
-    createSession,
-    deleteSession,
-    selectSession,
-    refreshSessions,
-    error: sessionError,
-  } = useSessions()
+  // LegendState integration
+  const connected = useSelector(isConnected)
+  const model = useSelector(selectedModel)
+  const sessions = useSelector(sessionsSortedByTime)
+  const isLoading = useSelector(store$.sessions.isLoading)
+  const isCreating = isLoading
+  const isDeleting = false // TODO: Add per-session deletion state
+  const isRefreshing = isLoading
 
   const isTablet = width > 768
 
@@ -41,7 +39,7 @@ export default function SessionListScreen() {
     if (!newSessionInput.trim()) return
 
     try {
-      const newSession = await createSession()
+      const newSession = await actions.sessions.createSession()
       setNewSessionInput('')
 
       // Navigate to the new session
@@ -53,13 +51,13 @@ export default function SessionListScreen() {
   }
 
   const openSession = (session: Session) => {
-    selectSession(session.id)
+    actions.sessions.selectSession(session.id)
     router.push(`/chat/${session.id}`)
   }
 
   const handleDeleteSession = async (session: Session) => {
     try {
-      await deleteSession(session.id)
+      await actions.sessions.deleteSession(session.id)
       // TODO: Show success toast
     } catch (error) {
       console.error('Failed to delete session:', error)
@@ -73,12 +71,12 @@ export default function SessionListScreen() {
   }
 
   const handleModelSelect = (modelId: string) => {
-    selectModel(modelId)
+    actions.models.selectModel(modelId)
   }
 
   const handleRefresh = async () => {
     try {
-      await refreshSessions()
+      await actions.sessions.loadSessions()
     } catch (error) {
       console.error('Failed to refresh sessions:', error)
     }
@@ -112,7 +110,8 @@ export default function SessionListScreen() {
           color="$color11"
           textAlign="center"
         >
-          Start your first session in {currentMode} mode with {selectedModel}
+          Start your first session in {currentMode} mode with{' '}
+          {model?.name || 'AI'}
         </Text>
       </YStack>
     </YStack>
@@ -128,7 +127,7 @@ export default function SessionListScreen() {
       paddingRight={insets.right}
     >
       {/* Header */}
-      <Header title="Sessions" connected={isConnected} showBorder={true} />
+      <Header title="Sessions" connected={connected} showBorder={true} />
 
       {/* Input Section */}
       <YStack
@@ -147,8 +146,8 @@ export default function SessionListScreen() {
           currentMode={currentMode}
           onModeSelect={setCurrentMode}
           placeholder="What can I help you with?"
-          currentModel={selectedModel}
-          disabled={!isConnected || isCreating}
+          currentModel={model?.id || ''}
+          disabled={!connected || isCreating}
           isStreaming={isCreating}
           size="$4"
         />
@@ -174,7 +173,7 @@ export default function SessionListScreen() {
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}
-                onRefresh={() => refreshSessions(true)}
+                onRefresh={handleRefresh}
                 tintColor="$color11"
               />
             }
