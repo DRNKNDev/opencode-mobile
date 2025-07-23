@@ -4,6 +4,7 @@ import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 import type { Message, MessagePart } from '../../services/types'
 import type { ToolPart } from '../../types/tools'
 import { debug } from '../../utils/debug'
+import { isPlanMode, formatMessageTime } from '../../utils/planMode'
 import { CodeBlock } from '../code/CodeBlock'
 import { ToolExecutionCard } from '../tools/ToolExecutionCard'
 
@@ -15,9 +16,18 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const { copyToClipboard } = useCopyToClipboard()
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set())
+  const isInPlanMode = isPlanMode(message)
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const shouldRenderPart = (part: MessagePart): boolean => {
+    // Filter out synthetic system reminder parts
+    if (
+      part.synthetic &&
+      part.type === 'text' &&
+      part.content?.includes('<system-reminder>')
+    ) {
+      return false
+    }
+    return true
   }
 
   const handleToggleToolExpanded = (toolId: string) => {
@@ -146,10 +156,10 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     <YStack marginBottom="$3" gap="$1">
       {message.parts && message.parts.length > 0 ? (
         <>
-          {/* Render all parts in original sequential order */}
-          {message.parts.map((part, index) =>
-            renderPartWithLayout(part, index)
-          )}
+          {/* Render all parts in original sequential order, filtering out synthetic system reminders */}
+          {message.parts
+            .filter(shouldRenderPart)
+            .map((part, index) => renderPartWithLayout(part, index))}
 
           {/* Timestamp at the end */}
           <XStack
@@ -163,7 +173,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 color={isUser ? 'rgba(255,255,255,0.7)' : '$color10'}
                 opacity={0.8}
               >
-                {formatTime(message.timestamp)}
+                {formatMessageTime(message.timestamp, isInPlanMode)}{' '}
               </Text>
               {message.status === 'sending' && (
                 <Text
@@ -214,7 +224,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   color={isUser ? 'rgba(255,255,255,0.7)' : '$color10'}
                   opacity={0.8}
                 >
-                  {formatTime(message.timestamp)}
+                  {formatMessageTime(message.timestamp, isInPlanMode)}
                   {message.status === 'sending' ? ' • Sending...' : ''}
                   {message.status === 'error' ? ' • Failed' : ''}
                 </Text>
