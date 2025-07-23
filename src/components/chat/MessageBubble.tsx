@@ -7,6 +7,7 @@ import { debug } from '../../utils/debug'
 import { isPlanMode, formatMessageTime } from '../../utils/planMode'
 import { CodeBlock } from '../code/CodeBlock'
 import { ToolExecutionCard } from '../tools/ToolExecutionCard'
+import { AttachmentRenderer } from './AttachmentRenderer'
 
 export interface MessageBubbleProps {
   message: Message
@@ -94,6 +95,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           debug.warn('Tool execution part has no toolResult, returning null')
         }
         return null
+      case 'file':
+        return <AttachmentRenderer key={index} files={[part]} />
       case 'text':
       default:
         return (
