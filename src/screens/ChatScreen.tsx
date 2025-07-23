@@ -14,17 +14,18 @@ import { Button, Text, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { MessageBubble } from '../components/chat/MessageBubble'
 import { Header } from '../components/ui/Header'
+import type { Message } from '../services/types'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
 import {
-  isConnected,
   currentMessages,
   currentSession,
-  selectedModel,
-  isSendingMessage,
   getDefaultModelForProvider,
+  isConnected,
+  isSendingMessage,
+  selectedMode,
+  selectedModel,
 } from '../store/computed'
-import type { Message } from '../services/types'
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -34,7 +35,6 @@ export default function ChatScreen() {
   const listRef = useRef<LegendListRef>(null)
   const scrollButtonOpacity = useRef(new Animated.Value(0)).current
   const [inputValue, setInputValue] = useState('')
-  const [currentMode, setCurrentMode] = useState<'build' | 'plan'>('plan') // Start in plan mode to show todos
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isNearBottom, setIsNearBottom] = useState(true)
   const prevMessagesLength = useRef(0)
@@ -44,6 +44,7 @@ export default function ChatScreen() {
   const messages = useSelector(currentMessages)
   const session = useSelector(currentSession)
   const model = useSelector(selectedModel)
+  const currentMode = useSelector(selectedMode)
   const isSending = useSelector(isSendingMessage)
   const isLoading = useSelector(store$.messages.isLoading)
 
@@ -137,7 +138,7 @@ export default function ChatScreen() {
         messageContent,
         model.id,
         providerId,
-        currentMode
+        currentMode?.name || 'build'
       )
     } catch (err) {
       console.error('Failed to send message:', err)
@@ -301,8 +302,6 @@ export default function ChatScreen() {
             onSubmit={handleSendMessage}
             onStop={handleStopStreaming}
             onModelSelect={handleModelSelect}
-            currentMode={currentMode}
-            onModeSelect={setCurrentMode}
             isStreaming={isStreaming}
             currentModel={model?.id || ''}
             placeholder="Type a message..."
