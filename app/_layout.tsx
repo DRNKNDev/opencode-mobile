@@ -1,3 +1,4 @@
+import 'react-native-url-polyfill/auto'
 import { Stack } from 'expo-router'
 import { useSelector } from '@legendapp/state/react'
 import { TamaguiProvider } from '@tamagui/core'
