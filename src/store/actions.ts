@@ -32,7 +32,7 @@ export const actions = {
         // Initialize OpenCode service
         const config: OpenCodeConfig = {
           baseURL: serverUrl,
-          timeout: 10000, // 10 seconds for connection
+          timeout: 120000, // 2 minutes for streaming connections
           maxRetries: 2,
         }
 

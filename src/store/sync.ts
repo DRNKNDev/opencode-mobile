@@ -1,4 +1,5 @@
-import { openCodeService, type StreamResponse } from '../services/opencode'
+import { openCodeService } from '../services/opencode'
+import type { StreamResponse } from '../services/sse'
 import { actions } from './actions'
 import { store$ } from './index'
 import type { Message } from '../services/types'
@@ -6,6 +7,7 @@ import type { Message } from '../services/types'
 class SyncService {
   private eventSource: AsyncGenerator<StreamResponse> | null = null
   private isListening = false
+  private retryCount = 0
 
   async startSync() {
     if (this.isListening) {
@@ -23,18 +25,28 @@ class SyncService {
       console.error('SSE connection error:', error)
       this.isListening = false
 
-      // Retry connection after a delay
+      // Enhanced retry with exponential backoff
+      const retryDelay = this.getRetryDelay()
       setTimeout(() => {
         if (store$.connection.status.get() === 'connected') {
           this.startSync()
         }
-      }, 5000)
+      }, retryDelay)
     }
   }
 
+  // Add retry logic
+  private getRetryDelay(): number {
+    const delay = Math.min(1000 * Math.pow(2, this.retryCount), 16000) // Max 16s
+    this.retryCount = Math.min(this.retryCount + 1, 5)
+    return delay
+  }
+
+  // Update stopSync to reset retry count
   stopSync() {
     this.isListening = false
     this.eventSource = null
+    this.retryCount = 0
   }
 
   private handleEvent(event: StreamResponse) {
