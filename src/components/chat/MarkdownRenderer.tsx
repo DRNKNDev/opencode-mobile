@@ -13,9 +13,16 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
   const customRules = useMemo(
     () => ({
       // Handle fenced code blocks (```language)
-      fence: (node: any) => {
+      fence: (
+        node: any,
+        children: any,
+        parent: any,
+        styles: any,
+        inheritedStyles: any = {}
+      ) => {
         return (
           <ScrollView
+            key={node.key || `fence-${Math.random()}`}
             maxHeight={200}
             backgroundColor="$background"
             marginVertical="$2"
@@ -32,9 +39,16 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
       },
 
       // Handle indented code blocks
-      code_block: (node: any) => {
+      code_block: (
+        node: any,
+        children: any,
+        parent: any,
+        styles: any,
+        inheritedStyles: any = {}
+      ) => {
         return (
           <ScrollView
+            key={node.key || `code-block-${Math.random()}`}
             maxHeight={200}
             backgroundColor="$background"
             padding="$2"
