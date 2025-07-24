@@ -1,7 +1,8 @@
 import Opencode from '@opencode-ai/sdk'
-import type { Session, Message, Model } from './types'
 import type { Mode } from '../components/modals/ModeSelector'
 import { debug } from '../utils/debug'
+import { SSEEventStream, type StreamResponse } from './sse'
+import type { Message, Model, Session } from './types'
 
 export interface OpenCodeConfig {
   baseURL: string
@@ -19,22 +20,6 @@ export interface SendMessageRequest {
   modelId: string
   providerId: string
   mode?: string
-}
-
-export interface StreamResponse {
-  id: string
-  type:
-    | 'message_updated'
-    | 'message_part_updated'
-    | 'session_updated'
-    | 'session_error'
-    | 'session_idle'
-    | 'tool_execution'
-    | 'error'
-  messageInfo?: Opencode.Message
-  part?: Opencode.Part
-  sessionInfo?: Opencode.Session
-  error?: string
 }
 
 class OpenCodeService {
@@ -338,10 +323,17 @@ class OpenCodeService {
     }
 
     try {
-      const stream = await this.client.event.list()
+      // Create SSE event stream with config - now directly outputs StreamResponse
+      const sseStream = new SSEEventStream({
+        baseURL: this.config!.baseURL,
+        timeout: 120000, // 2 minutes for streaming
+        pollingInterval: 5000, // Auto-reconnect
+        debug: __DEV__,
+      })
 
-      for await (const event of stream) {
-        yield this.transformEvent(event)
+      // Stream events directly - no transformation needed
+      for await (const streamResponse of sseStream.streamEvents()) {
+        yield streamResponse
       }
     } catch (error) {
       console.error('Failed to stream events:', error)
@@ -350,55 +342,6 @@ class OpenCodeService {
         type: 'error',
         error: error instanceof Error ? error.message : 'Unknown error',
       }
-    }
-  }
-
-  private transformEvent(event: Opencode.EventListResponse): StreamResponse {
-    const id = Math.random().toString(36).substring(2, 15)
-
-    switch (event.type) {
-      case 'message.updated':
-        return {
-          id,
-          type: 'message_updated',
-          messageInfo: event.properties.info,
-        }
-
-      case 'message.part.updated':
-        return {
-          id,
-          type: 'message_part_updated',
-          part: event.properties.part,
-        }
-
-      case 'session.updated':
-        return {
-          id,
-          type: 'session_updated',
-          sessionInfo: event.properties.info,
-        }
-
-      case 'session.error':
-        return {
-          id,
-          type: 'session_error',
-          error: event.properties.error
-            ? JSON.stringify(event.properties.error)
-            : 'Unknown session error',
-        }
-
-      case 'session.idle':
-        return {
-          id,
-          type: 'session_idle',
-        }
-
-      default:
-        return {
-          id,
-          type: 'error',
-          error: `Unknown event type: ${event.type}`,
-        }
     }
   }
 
