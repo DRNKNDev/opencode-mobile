@@ -113,7 +113,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 {part.content}
               </Text>
             ) : (
-              <MarkdownRenderer content={part.content} />
+              <YStack width="100%">
+                <MarkdownRenderer content={message.content} />
+              </YStack>
             )}
           </Card>
         )
@@ -213,7 +215,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   {message.content}
                 </Text>
               ) : (
-                <MarkdownRenderer content={message.content} />
+                <YStack width="100%">
+                  <MarkdownRenderer content={message.content} />
+                </YStack>
               )}
               <XStack
                 justifyContent={isUser ? 'flex-end' : 'flex-start'}
