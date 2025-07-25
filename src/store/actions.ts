@@ -4,6 +4,7 @@ import {
   type SendMessageRequest,
 } from '../services/opencode'
 import type { Message } from '../services/types'
+import { NETWORK_CONFIG } from '../config/constants'
 import { store$ } from './index'
 import { setActionError } from './utils'
 
@@ -32,8 +33,8 @@ export const actions = {
         // Initialize OpenCode service
         const config: OpenCodeConfig = {
           baseURL: serverUrl,
-          timeout: 120000, // 2 minutes for streaming connections
-          maxRetries: 2,
+          timeout: NETWORK_CONFIG.timeout, // 2 minutes for streaming connections
+          maxRetries: NETWORK_CONFIG.maxRetries,
         }
 
         openCodeService.initialize(config)
@@ -94,7 +95,7 @@ export const actions = {
 
         // Attempt retry if not at max retries
         const retryCount = store$.connection.retryCount.get()
-        if (retryCount < 3) {
+        if (retryCount < NETWORK_CONFIG.maxRetryLimit) {
           actions.connection.scheduleReconnect()
         }
 
@@ -212,7 +213,7 @@ export const actions = {
 
       const interval = setInterval(() => {
         actions.connection.performHealthCheck()
-      }, 300000) // 5 minutes
+      }, NETWORK_CONFIG.healthCheckInterval) // 5 minutes
 
       store$.connection.healthCheckInterval.set(interval)
     },
@@ -254,11 +255,11 @@ export const actions = {
       const retryCount = store$.connection.retryCount.get()
       const existingTimeout = store$.connection.reconnectTimeout.get()
 
-      if (existingTimeout || retryCount >= 3) {
+      if (existingTimeout || retryCount >= NETWORK_CONFIG.maxRetryLimit) {
         return
       }
 
-      const delay = 2000 * Math.pow(2, retryCount) // Exponential backoff
+      const delay = NETWORK_CONFIG.retryBaseDelay * Math.pow(2, retryCount) // Exponential backoff
 
       const timeout = setTimeout(async () => {
         store$.connection.reconnectTimeout.set(null)
