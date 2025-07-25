@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'expo-router'
 import { useSelector } from '@legendapp/state/react'
 import { LoadingScreen } from '../src/components/ui/LoadingScreen'
+import { APP_CONFIG } from '../src/config/constants'
 import { store$ } from '../src/store'
 
 export default function Index() {
@@ -29,5 +30,5 @@ export default function Index() {
     return () => clearTimeout(timer)
   }, [router, isNavigating, serverUrl])
 
-  return <LoadingScreen message="Initializing Patjoe..." />
+  return <LoadingScreen message={`Initializing ${APP_CONFIG.name}...`} />
 }
