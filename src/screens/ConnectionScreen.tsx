@@ -5,6 +5,7 @@ import { YStack, Input, Button, Text, Heading, Card } from 'tamagui'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
+import { APP_CONFIG } from '../config/constants'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
 import { isConnecting } from '../store/computed'
@@ -15,7 +16,7 @@ export default function ConnectionScreen() {
   const insets = useSafeAreaInsets()
   const storedServerUrl = useSelector(store$.connection.serverUrl)
   const [serverUrl, setServerUrl] = useState(
-    storedServerUrl || 'http://localhost:3000'
+    storedServerUrl || APP_CONFIG.defaultServerUrl
   )
 
   // LegendState integration
@@ -88,7 +89,7 @@ export default function ConnectionScreen() {
             color="$color"
             textAlign="center"
           >
-            Patjoe
+            {APP_CONFIG.name}
           </Heading>
           <Text
             color="$color11"
@@ -114,7 +115,7 @@ export default function ConnectionScreen() {
             <Input
               value={serverUrl}
               onChangeText={setServerUrl}
-              placeholder="http://localhost:3000"
+              placeholder={APP_CONFIG.defaultServerUrl}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
