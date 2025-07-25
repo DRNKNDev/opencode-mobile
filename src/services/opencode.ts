@@ -337,11 +337,7 @@ class OpenCodeService {
       }
     } catch (error) {
       console.error('Failed to stream events:', error)
-      yield {
-        id: Math.random().toString(36),
-        type: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }
+      throw error
     }
   }
 
