@@ -1,4 +1,4 @@
-import Opencode from '@opencode-ai/sdk'
+import type { EventListResponse } from '@opencode-ai/sdk/resources/event'
 import EventSource from 'react-native-sse'
 import { debug } from '../utils/debug'
 
@@ -15,20 +15,8 @@ export interface RawSSEEvent {
   properties?: Record<string, any>
 }
 
-export interface StreamResponse {
+export type StreamResponse = EventListResponse & {
   id: string
-  type:
-    | 'message_updated'
-    | 'message_part_updated'
-    | 'session_updated'
-    | 'session_error'
-    | 'session_idle'
-    | 'tool_execution'
-    | 'error'
-  messageInfo?: Opencode.Message
-  part?: Opencode.Part
-  sessionInfo?: Opencode.Session
-  error?: string
 }
 
 export interface SSEEventQueue<T> {
@@ -108,18 +96,15 @@ export class SSEEventStream {
           return
         }
 
-        // Convert SSE data directly to StreamResponse
-        const streamResponse = this.parseSSEToStreamResponse(data)
-        if (streamResponse) {
+        // Use SDK EventListResponse directly with minimal extension
+        if (this.isValidEventListResponse(data)) {
+          const streamResponse: StreamResponse = {
+            ...data,
+            id: Math.random().toString(36).substring(2, 15),
+          }
           queueEvent(streamResponse)
         } else {
-          // Handle unknown event types - queue an error event
-          debug.warn('Unknown SSE event type:', data.type, data)
-          queueEvent({
-            id: Math.random().toString(36).substring(2, 15),
-            type: 'error',
-            error: `Unknown event type: ${data.type}`,
-          })
+          debug.warn('Invalid event data received:', data)
         }
       })
 
@@ -147,114 +132,6 @@ export class SSEEventStream {
   }
 
   /**
-   * Convert raw SSE data directly to StreamResponse objects
-   */
-  private parseSSEToStreamResponse(data: RawSSEEvent): StreamResponse | null {
-    try {
-      const eventType = data.type
-      const properties = data.properties || {}
-      const id = Math.random().toString(36).substring(2, 15)
-
-      switch (eventType) {
-        case 'message.updated':
-          return {
-            id,
-            type: 'message_updated',
-            messageInfo: properties.info,
-          }
-
-        case 'message.part.updated':
-          return {
-            id,
-            type: 'message_part_updated',
-            part: properties.part,
-          }
-
-        case 'session.updated':
-          return {
-            id,
-            type: 'session_updated',
-            sessionInfo: properties.info,
-          }
-
-        case 'session.error':
-          return {
-            id,
-            type: 'session_error',
-            error: properties.error
-              ? JSON.stringify(properties.error)
-              : 'Unknown session error',
-          }
-
-        case 'session.idle':
-          return {
-            id,
-            type: 'session_idle',
-          }
-
-        case 'storage.write':
-          const { content, key } = properties
-
-          if (content && key) {
-            // Parse the storage key to determine type
-            if (key.includes('/message/')) {
-              // Handle message updates
-              return {
-                id,
-                type: 'message_updated',
-                messageInfo: content as Opencode.Message,
-              }
-            } else if (key.includes('/part/')) {
-              // Handle part updates (streaming text)
-              return {
-                id,
-                type: 'message_part_updated',
-                part: content as Opencode.Part,
-              }
-            }
-          }
-
-          // Fallback for unknown storage.write events
-          return {
-            id,
-            type: 'error',
-            error: `Unknown storage.write key: ${key}`,
-          }
-
-        // Additional SDK event types that we acknowledge but don't handle in UI
-        case 'message.removed':
-        case 'session.deleted':
-        case 'file.edited':
-        case 'file.watcher.updated':
-        case 'permission.updated':
-        case 'installation.updated':
-        case 'lsp.client.diagnostics':
-          debug.log(`Received unhandled event type: ${eventType}`)
-          return {
-            id,
-            type: 'error',
-            error: `Unhandled event type: ${eventType}`,
-          }
-
-        default:
-          debug.warn(`Unknown SSE event type: ${eventType}`)
-          return {
-            id,
-            type: 'error',
-            error: `Unknown event type: ${eventType}`,
-          }
-      }
-    } catch (error) {
-      debug.error('Failed to parse SSE data to StreamResponse:', error)
-      return {
-        id: Math.random().toString(36).substring(2, 15),
-        type: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }
-    }
-  }
-
-  /**
    * Parse raw SSE data from string or object
    */
   private parseSSEData(data: any): RawSSEEvent {
@@ -264,6 +141,30 @@ export class SSEEventStream {
       debug.warn('Failed to parse SSE data:', error)
       return { type: 'unknown', properties: {} }
     }
+  }
+
+  /**
+   * Type guard to check if data is a valid EventListResponse
+   */
+  private isValidEventListResponse(
+    data: RawSSEEvent
+  ): data is EventListResponse {
+    const validTypes = [
+      'lsp.client.diagnostics',
+      'permission.updated',
+      'file.edited',
+      'installation.updated',
+      'message.updated',
+      'message.removed',
+      'message.part.updated',
+      'storage.write',
+      'session.updated',
+      'session.deleted',
+      'session.idle',
+      'session.error',
+      'file.watcher.updated',
+    ]
+    return validTypes.includes(data.type) && typeof data.properties === 'object'
   }
 
   /**
