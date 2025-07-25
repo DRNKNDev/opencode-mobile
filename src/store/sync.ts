@@ -51,41 +51,81 @@ class SyncService {
 
   private handleEvent(event: StreamResponse) {
     switch (event.type) {
-      case 'message_updated':
-        if (event.messageInfo) {
-          this.handleMessageUpdate(event.messageInfo)
+      case 'message.updated':
+        if ('properties' in event && event.properties.info) {
+          this.handleMessageUpdate(event.properties.info)
         }
         break
 
-      case 'message_part_updated':
-        if (event.part) {
-          this.handleMessagePartUpdate(event.part)
+      case 'message.part.updated':
+        if ('properties' in event && event.properties.part) {
+          this.handleMessagePartUpdate(event.properties.part)
         }
         break
 
-      case 'session_updated':
-        if (event.sessionInfo) {
-          this.handleSessionUpdate(event.sessionInfo)
+      case 'session.updated':
+        if ('properties' in event && event.properties.info) {
+          this.handleSessionUpdate(event.properties.info)
         }
         break
 
-      case 'session_error':
-        console.error('Session error:', event.error)
-        store$.messages.error.set(event.error || 'Session error occurred')
+      case 'session.error':
+        if ('properties' in event) {
+          const errorMsg = event.properties.error
+            ? JSON.stringify(event.properties.error)
+            : 'Session error occurred'
+          console.error('Session error:', errorMsg)
+          store$.messages.error.set(errorMsg)
+        }
         break
 
-      case 'session_idle':
-        // Session is idle, could update UI state
+      case 'session.idle':
         store$.messages.isSending.set(false)
         break
 
-      case 'error':
-        console.error('SSE error:', event.error)
-        store$.messages.error.set(event.error || 'Stream error occurred')
+      case 'storage.write':
+        if ('properties' in event) {
+          const { content, key } = event.properties
+          if (content && key) {
+            if (key.includes('/message/')) {
+              this.handleMessageUpdate(content as any)
+            } else if (key.includes('/part/')) {
+              this.handleMessagePartUpdate(content as any)
+            }
+          }
+        }
+        break
+
+      case 'message.removed':
+        if ('properties' in event) {
+          const { messageID, sessionID } = event.properties
+          const currentMessages =
+            store$.messages.bySessionId[sessionID].get() || []
+          store$.messages.bySessionId[sessionID].set(
+            currentMessages.filter(m => m.id !== messageID)
+          )
+        }
+        break
+
+      case 'session.deleted':
+        if ('properties' in event && event.properties.info) {
+          const sessionId = event.properties.info.id
+          store$.sessions.list.set(sessions =>
+            sessions.filter(s => s.id !== sessionId)
+          )
+        }
+        break
+
+      case 'file.edited':
+      case 'file.watcher.updated':
+      case 'permission.updated':
+      case 'installation.updated':
+      case 'lsp.client.diagnostics':
+        console.log(`Received ${event.type} event - not handled in UI`)
         break
 
       default:
-        console.warn('Unknown event type:', event.type)
+        console.warn('Unknown event type:', (event as any).type)
     }
   }
 
