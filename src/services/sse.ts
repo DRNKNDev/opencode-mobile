@@ -54,7 +54,7 @@ export class SSEEventStream {
         Accept: 'text/event-stream',
         'Cache-Control': 'no-cache',
       },
-      timeout: this.config.timeout || NETWORK_CONFIG.timeout, // Use centralized timeout config
+      timeout: 0, // No timeout - connection never expires
       pollingInterval: this.config.pollingInterval || 5000, // Auto-reconnect
       debug: this.config.debug || __DEV__,
     })
