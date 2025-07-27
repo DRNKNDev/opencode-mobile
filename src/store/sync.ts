@@ -8,7 +8,6 @@ class SyncService {
   private eventSource: AsyncGenerator<StreamResponse> | null = null
   private isListening = false
   private retryCount = 0
-  private pendingParts: Map<string, any[]> = new Map()
   private eventDependencies: Map<string, Promise<void>> = new Map()
 
   async startSync() {
@@ -49,7 +48,6 @@ class SyncService {
     this.isListening = false
     this.eventSource = null
     this.retryCount = 0
-    this.pendingParts.clear()
     this.eventDependencies.clear()
   }
 
@@ -103,8 +101,7 @@ class SyncService {
           store$.messages.bySessionId[currentSessionId].set(updatedMessages)
         }
 
-        // Clean up all pending parts now that streaming is complete
-        this.pendingParts.clear()
+        // Streaming is complete
 
         store$.messages.isSending.set(false)
         break
@@ -143,64 +140,6 @@ class SyncService {
     }
   }
 
-  private applyPendingParts(messageId: string, message: Message): Message {
-    const parts = this.pendingParts.get(messageId) || []
-    if (parts.length === 0) return message
-
-    let textContent = message.content
-    const toolParts: MessagePart[] = []
-
-    // Group tool parts by callID to handle status updates
-    const toolPartsByCallID = new Map<string, any[]>()
-
-    for (const part of parts) {
-      if (part.type === 'text') {
-        textContent = part.text
-        // Also create individual text part
-        const textPart: MessagePart = {
-          type: 'text',
-          content: part.text,
-          synthetic: part.synthetic,
-        }
-        toolParts.push(textPart) // Add to parts array alongside tool parts
-      } else if (part.type === 'tool') {
-        const callID = part.callID || `${part.tool}-${Date.now()}`
-        if (!toolPartsByCallID.has(callID)) {
-          toolPartsByCallID.set(callID, [])
-        }
-        toolPartsByCallID.get(callID)!.push(part)
-      }
-    }
-
-    // Create tool parts with latest status for each callID
-    for (const [callID, toolEvents] of toolPartsByCallID) {
-      const latestEvent = toolEvents[toolEvents.length - 1]
-      const toolPart: MessagePart = {
-        type: 'tool_execution',
-        content: latestEvent.state?.title || `${latestEvent.tool} execution`,
-        toolName: latestEvent.tool,
-        callID: callID,
-        toolResult: {
-          status: latestEvent.state?.status || 'pending',
-          input: latestEvent.state?.input || {},
-          output: latestEvent.state?.output || '',
-          error: latestEvent.state?.error,
-          time: latestEvent.state?.time,
-          title: latestEvent.state?.title,
-          metadata: latestEvent.state?.metadata,
-        },
-      }
-      toolParts.push(toolPart)
-    }
-
-    return {
-      ...message,
-      content: textContent,
-      parts: [...(message.parts || []), ...toolParts],
-      isStreaming: true,
-    }
-  }
-
   private async handleMessageUpdate(messageInfo: any): Promise<void> {
     const sessionId = messageInfo.sessionID
     const messageId = messageInfo.id
@@ -230,9 +169,6 @@ class SyncService {
       }
     }
 
-    // Apply any pending parts
-    message = this.applyPendingParts(messageId, message)
-
     // Add or update the message in the store
     actions.messages.addMessage(message)
   }
@@ -242,24 +178,11 @@ class SyncService {
       type: 'text',
       content: part.text,
       synthetic: part.synthetic,
+      id: part.id || `text-${Date.now()}`,
     }
 
     // Use existing addPartToMessage logic (same as tool parts)
-    this.addPartToMessage(messageId, sessionId, textPart, part)
-
-    // Also update message.content for accumulated text
-    const currentMessages = store$.messages.bySessionId[sessionId].get() || []
-    const messageIndex = currentMessages.findIndex(m => m.id === messageId)
-
-    if (messageIndex >= 0) {
-      store$.messages.bySessionId[sessionId].set(messages =>
-        messages.map(m =>
-          m.id === messageId
-            ? { ...m, content: part.text, isStreaming: true }
-            : m
-        )
-      )
-    }
+    this.addPartToMessage(messageId, sessionId, textPart)
   }
 
   private handleToolPart(messageId: string, sessionId: string, part: any) {
@@ -276,6 +199,7 @@ class SyncService {
       content: part.state?.title || `${part.tool} execution`,
       toolName: part.tool,
       callID: part.callID,
+      id: part.id || part.callID || `tool-${part.tool}-${Date.now()}`,
       toolResult: {
         status: part.state?.status || 'pending',
         input: part.state?.input || {},
@@ -287,14 +211,13 @@ class SyncService {
       },
     }
 
-    this.addPartToMessage(messageId, sessionId, toolPart, part)
+    this.addPartToMessage(messageId, sessionId, toolPart)
   }
 
   private addPartToMessage(
     messageId: string,
     sessionId: string,
-    newPart: MessagePart,
-    originalPart: any
+    newPart: MessagePart
   ) {
     const currentMessages = store$.messages.bySessionId[sessionId].get() || []
     const messageIndex = currentMessages.findIndex(m => m.id === messageId)
@@ -302,9 +225,14 @@ class SyncService {
     if (messageIndex >= 0) {
       const currentMessage = currentMessages[messageIndex]
 
-      // Find existing part by type and identifier
+      // Find existing part by ID first, then fallback to type-based matching
       const existingPartIndex =
         currentMessage.parts?.findIndex(p => {
+          // Match by ID if both parts have IDs
+          if (p.id && newPart.id) {
+            return p.id === newPart.id
+          }
+          // Fallback to type-based matching for compatibility
           if (
             p.type === 'tool_execution' &&
             newPart.type === 'tool_execution'
@@ -319,7 +247,7 @@ class SyncService {
 
       let updatedParts: MessagePart[]
       if (existingPartIndex >= 0) {
-        // UPDATE existing tool part (status transition)
+        // UPDATE existing part (status transition or content update)
         updatedParts = [...(currentMessage.parts || [])]
         updatedParts[existingPartIndex] = {
           ...updatedParts[existingPartIndex],
@@ -330,13 +258,13 @@ class SyncService {
           },
         }
         console.log(
-          `Updated tool part ${newPart.callID}: ${newPart.toolResult?.status}`
+          `Updated part ${newPart.id || newPart.callID}: ${newPart.toolResult?.status || 'text'}`
         )
       } else {
-        // CREATE new tool part (first time)
+        // CREATE new part (first time)
         updatedParts = [...(currentMessage.parts || []), newPart]
         console.log(
-          `Created tool part ${newPart.callID}: ${newPart.toolResult?.status}`
+          `Created part ${newPart.id || newPart.callID}: ${newPart.toolResult?.status || 'text'}`
         )
       }
 
@@ -350,11 +278,8 @@ class SyncService {
         messages.map(m => (m.id === messageId ? updatedMessage : m))
       )
     } else {
-      // Message doesn't exist - queue the part for later
-      if (!this.pendingParts.has(messageId)) {
-        this.pendingParts.set(messageId, [])
-      }
-      this.pendingParts.get(messageId)!.push(originalPart)
+      // Message doesn't exist yet - this shouldn't happen with proper event ordering
+      console.warn(`Message ${messageId} not found when adding part`)
     }
   }
 
