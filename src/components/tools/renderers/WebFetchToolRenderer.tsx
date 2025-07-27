@@ -10,10 +10,12 @@ interface WebFetchToolRendererProps extends ToolPartRendererProps {
 
 export function WebFetchToolRenderer({
   tool,
+  status,
   isExpanded,
 }: WebFetchToolRendererProps) {
   const { copyToClipboard } = useCopyToClipboard()
   const input = tool.state.input || {}
+  const currentStatus = status || tool.state.status
 
   const handleCopyUrl = () => {
     if (input.url) {
@@ -102,7 +104,19 @@ export function WebFetchToolRenderer({
         </YStack>
       )}
 
-      {tool.state.output && (
+      {currentStatus === 'pending' && (
+        <Text fontSize="$3" color="$color11">
+          Preparing to fetch content...
+        </Text>
+      )}
+
+      {currentStatus === 'running' && (
+        <Text fontSize="$3" color="$color11">
+          Fetching content...
+        </Text>
+      )}
+
+      {currentStatus === 'completed' && tool.state.output && (
         <YStack gap="$2">
           <XStack alignItems="center" justifyContent="space-between">
             <Text fontSize="$2" color="$color11">
@@ -129,21 +143,10 @@ export function WebFetchToolRenderer({
         </YStack>
       )}
 
-      {tool.state.error && (
-        <YStack gap="$2">
-          <Text fontSize="$2" color="$color11">
-            Error:
-          </Text>
-          <Text
-            fontSize="$3"
-            color="$red11"
-            backgroundColor="$background"
-            padding="$2"
-            borderRadius="$2"
-          >
-            {tool.state.error}
-          </Text>
-        </YStack>
+      {currentStatus === 'error' && (
+        <Text fontSize="$3" color="$red11">
+          Failed to fetch: {tool.state.error || 'Unknown error'}
+        </Text>
       )}
     </YStack>
   )

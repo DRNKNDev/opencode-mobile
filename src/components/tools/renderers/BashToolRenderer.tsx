@@ -5,9 +5,10 @@ import { CodeBlock } from '../../code/CodeBlock'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
 import type { ToolPartRendererProps } from '../../../types/tools'
 
-export function BashToolRenderer({ tool }: ToolPartRendererProps) {
+export function BashToolRenderer({ tool, status }: ToolPartRendererProps) {
   const { copyToClipboard } = useCopyToClipboard()
   const { input, output, error } = tool.state
+  const currentStatus = status || tool.state.status
 
   const handleCopyCommand = () => {
     if (input.command) {
@@ -30,6 +31,7 @@ export function BashToolRenderer({ tool }: ToolPartRendererProps) {
         </Text>
       </XStack>
 
+      {/* Always show command */}
       <YStack gap="$2">
         <XStack alignItems="center" justifyContent="space-between">
           <Text fontSize="$2" color="$color11">
@@ -55,8 +57,8 @@ export function BashToolRenderer({ tool }: ToolPartRendererProps) {
         </Text>
       </YStack>
 
-      {/* Output */}
-      {output && (
+      {/* Show output only for completed state */}
+      {currentStatus === 'completed' && output && (
         <YStack gap="$2">
           <XStack alignItems="center" justifyContent="space-between">
             <Text fontSize="$2" color="$color11">
@@ -79,8 +81,8 @@ export function BashToolRenderer({ tool }: ToolPartRendererProps) {
         </YStack>
       )}
 
-      {/* Error */}
-      {error && (
+      {/* Show error for error state */}
+      {currentStatus === 'error' && error && (
         <YStack gap="$2">
           <Text fontSize="$2" color="$color11">
             Error:
@@ -97,6 +99,15 @@ export function BashToolRenderer({ tool }: ToolPartRendererProps) {
             </Text>
           </YStack>
         </YStack>
+      )}
+
+      {/* Show loading for pending/running */}
+      {(currentStatus === 'pending' || currentStatus === 'running') && (
+        <Text fontSize="$3" color="$color11">
+          {currentStatus === 'pending'
+            ? 'Waiting to execute...'
+            : 'Executing command...'}
+        </Text>
       )}
     </YStack>
   )
