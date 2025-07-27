@@ -1,5 +1,6 @@
 import type { EventListResponse } from '@opencode-ai/sdk/resources/event'
 import EventSource from 'react-native-sse'
+import { NETWORK_CONFIG } from '../config/constants'
 import { debug } from '../utils/debug'
 
 // SSE-specific interfaces
@@ -53,7 +54,7 @@ export class SSEEventStream {
         Accept: 'text/event-stream',
         'Cache-Control': 'no-cache',
       },
-      timeout: this.config.timeout || 120000, // 2 minutes for streaming
+      timeout: this.config.timeout || NETWORK_CONFIG.timeout, // Use centralized timeout config
       pollingInterval: this.config.pollingInterval || 5000, // Auto-reconnect
       debug: this.config.debug || __DEV__,
     })
@@ -126,7 +127,7 @@ export class SSEEventStream {
           }
           orderedBuffer.expectedSequence =
             Math.max(...sortedSequences, orderedBuffer.expectedSequence) + 1
-        }, 2000) // 2 second timeout for missing events
+        }, NETWORK_CONFIG.retryBaseDelay) // Use centralized retry delay for missing events
       } else {
         // Fallback to immediate processing for events without sequence
         eventQueue.events.push(event)
