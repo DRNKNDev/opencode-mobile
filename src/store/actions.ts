@@ -310,7 +310,7 @@ export const actions = {
 
       try {
         const session = await openCodeService.createSession()
-        store$.sessions.list.set(sessions => [...sessions, session])
+        // Don't add to store here - let SSE handle it via session.updated event
         store$.sessions.current.set(session.id)
         return session
       } catch (error) {
