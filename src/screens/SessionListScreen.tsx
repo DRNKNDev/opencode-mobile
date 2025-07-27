@@ -13,6 +13,7 @@ import type { Session } from '../services/types'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
 import {
+  getDefaultModelForProvider,
   isConnected,
   selectedMode,
   selectedModel,
@@ -47,18 +48,42 @@ export default function SessionListScreen() {
   const createNewSession = async () => {
     if (!newSessionInput.trim()) return
 
-    try {
-      const newSession = await actions.sessions.createSession()
-      setNewSessionInput('')
+    const messageContent = newSessionInput.trim()
+    setNewSessionInput('')
 
-      // Navigate to the new session
+    try {
+      // Create the session first
+      const newSession = await actions.sessions.createSession()
+
+      // Navigate immediately for fast UX
       router.push(`/chat/${newSession.id}`)
+
+      // Send the initial message in the background (don't await)
+      if (model) {
+        const providerId =
+          model.providerId ||
+          getDefaultModelForProvider(model.provider) ||
+          'anthropic'
+
+        // Fire and forget - let it happen in background
+        actions.messages
+          .sendMessage(
+            newSession.id,
+            messageContent,
+            model.id,
+            providerId,
+            currentMode?.name || 'build'
+          )
+          .catch(error => {
+            console.error('Failed to send initial message:', error)
+            // Could show a toast here if needed
+          })
+      }
     } catch (error) {
       console.error('Failed to create session:', error)
       // TODO: Show error toast
     }
   }
-
   const openSession = (session: Session) => {
     actions.sessions.selectSession(session.id)
     router.push(`/chat/${session.id}`)

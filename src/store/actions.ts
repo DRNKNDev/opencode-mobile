@@ -1,10 +1,10 @@
+import { NETWORK_CONFIG } from '../config/constants'
 import {
   openCodeService,
   type OpenCodeConfig,
   type SendMessageRequest,
 } from '../services/opencode'
 import type { Message } from '../services/types'
-import { NETWORK_CONFIG } from '../config/constants'
 import { store$ } from './index'
 import { setActionError } from './utils'
 
@@ -310,7 +310,7 @@ export const actions = {
 
       try {
         const session = await openCodeService.createSession()
-        store$.sessions.list.set(sessions => [...sessions, session])
+        // Don't add to store here - let SSE handle it via session.updated event
         store$.sessions.current.set(session.id)
         return session
       } catch (error) {
@@ -360,7 +360,7 @@ export const actions = {
 
   // Message actions
   messages: {
-    loadMessages: async (sessionId: string, forceSync = false) => {
+    loadMessages: async (sessionId: string) => {
       store$.messages.isLoading.set(true)
       store$.messages.error.set(null)
 
@@ -396,24 +396,6 @@ export const actions = {
       store$.messages.isSending.set(true)
       store$.messages.error.set(null)
 
-      // Create optimistic user message
-      const tempId = `temp-${Date.now()}`
-      const userMessage: Message = {
-        id: tempId,
-        sessionId,
-        role: 'user',
-        content,
-        timestamp: new Date(),
-        status: 'sending',
-      }
-
-      // Add user message to UI immediately
-      const currentMessages = store$.messages.bySessionId[sessionId].get() || []
-      store$.messages.bySessionId[sessionId].set([
-        ...currentMessages,
-        userMessage,
-      ])
-
       try {
         const request: SendMessageRequest = {
           sessionId,
@@ -425,29 +407,12 @@ export const actions = {
 
         // Send message to server
         await openCodeService.sendMessage(request)
-
-        // Update user message status to sent
-        store$.messages.bySessionId[sessionId].set(messages =>
-          messages.map(msg =>
-            msg.id === tempId ? { ...msg, status: 'sent' as const } : msg
-          )
-        )
-
-        // The assistant response will come through SSE events
       } catch (error) {
         setActionError(
           error,
           'Failed to send message',
           store$.messages.error.set
         )
-
-        // Update user message status to error
-        store$.messages.bySessionId[sessionId].set(messages =>
-          messages.map(msg =>
-            msg.id === tempId ? { ...msg, status: 'error' as const } : msg
-          )
-        )
-
         throw error
       } finally {
         store$.messages.isSending.set(false)

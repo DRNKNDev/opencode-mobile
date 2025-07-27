@@ -1,6 +1,6 @@
+import { ChevronDown, ChevronUp } from '@tamagui/lucide-icons'
 import React from 'react'
-import { ChevronDown, ChevronUp, Copy } from '@tamagui/lucide-icons'
-import { Button, Text, XStack, YStack } from 'tamagui'
+import { Text, XStack, YStack } from 'tamagui'
 import type { ToolExecutionCardProps } from '../../types/tools'
 import { BashToolRenderer } from './renderers/BashToolRenderer'
 import { EditToolRenderer } from './renderers/EditToolRenderer'
@@ -17,15 +17,6 @@ export function ToolExecutionCard({
   onCopy,
   maxHeight = 700,
 }: ToolExecutionCardProps) {
-  // DEBUG: Log what data ToolExecutionCard receives
-  console.log('🎯 ToolExecutionCard received:', {
-    toolId: tool.id,
-    toolName: tool.tool,
-    toolType: tool.type,
-    toolState: tool.state,
-    isExpanded,
-    fullTool: tool,
-  })
   const getStatusColor = () => {
     switch (tool.state.status) {
       case 'completed':
@@ -42,54 +33,96 @@ export function ToolExecutionCard({
   const getToolInfo = () => {
     const input = tool.state.input || {}
     const output = tool.state.output || ''
+    const status = tool.state.status
+    const toolName = tool.tool
 
-    switch (tool.type) {
-      case 'read':
-        const readLines = output ? output.split('\n').length : 0
-        const readFileName = input.filePath?.split('/').pop() || 'file'
-        return readLines > 1
-          ? `Read ${readFileName} (${readLines} lines)`
-          : `Read ${readFileName}`
-      case 'write':
-        const writeLines = output ? output.split('\n').length : 0
-        const writeFileName = input.filePath?.split('/').pop() || 'file'
-        return writeLines > 1
-          ? `Write ${writeFileName} (${writeLines} lines)`
-          : `Write ${writeFileName}`
-      case 'edit':
-        const editFileName = input.filePath?.split('/').pop() || 'file'
-        if (input.oldString && input.newString) {
-          const oldLines = input.oldString.split('\n').length
-          const newLines = input.newString.split('\n').length
-          const added = Math.max(0, newLines - oldLines)
-          const removed = Math.max(0, oldLines - newLines)
-          if (added > 0 || removed > 0) {
-            return `Edit ${editFileName} (+${added} -${removed} lines)`
-          }
+    // Status-based display logic
+    switch (status) {
+      case 'pending':
+        return `${toolName} starting...`
+
+      case 'running':
+        return `${toolName} running...`
+
+      case 'error':
+        return `${toolName} failed`
+
+      case 'completed':
+        // Show detailed info for completed tools
+        switch (tool.type) {
+          case 'read':
+            const readLines = output ? output.split('\n').length : 0
+            const readFileName = input.filePath?.split('/').pop() || 'file'
+            return readLines > 1
+              ? `Read ${readFileName} (${readLines} lines)`
+              : `Read ${readFileName}`
+          case 'write':
+            const writeLines = output ? output.split('\n').length : 0
+            const writeFileName = input.filePath?.split('/').pop() || 'file'
+            return writeLines > 1
+              ? `Write ${writeFileName} (${writeLines} lines)`
+              : `Write ${writeFileName}`
+          case 'edit':
+            const editFileName = input.filePath?.split('/').pop() || 'file'
+            if (input.oldString && input.newString) {
+              const oldLines = input.oldString.split('\n').length
+              const newLines = input.newString.split('\n').length
+              const added = Math.max(0, newLines - oldLines)
+              const removed = Math.max(0, oldLines - newLines)
+              if (added > 0 || removed > 0) {
+                return `Edit ${editFileName} (+${added} -${removed} lines)`
+              }
+            }
+            return `Edit ${editFileName}`
+          case 'bash':
+            return `Run ${input.command || 'command'}`
+          case 'grep':
+            const results = tool.state.output
+              ? tool.state.output
+                  .trim()
+                  .split('\n')
+                  .filter(line => line.trim()).length
+              : 0
+            return `Search "${input.pattern}" (${results} results)`
+          case 'webfetch':
+            return `Fetch ${input.url || 'URL'}`
+          case 'todowrite':
+            return `Update todos (${input.todos?.length || 0} items)`
+          default:
+            return `${toolName} completed`
         }
-        return `Edit ${editFileName}`
-      case 'bash':
-        return `Run ${input.command || 'command'}`
-      case 'grep':
-        const results = tool.state.output
-          ? tool.state.output
-              .trim()
-              .split('\n')
-              .filter(line => line.trim()).length
-          : 0
-        return `Search "${input.pattern}" (${results} results)`
-      case 'webfetch':
-        return `Fetch ${input.url || 'URL'}`
-      case 'todowrite':
-        return `Update todos (${input.todos?.length || 0} items)`
+
       default:
-        return tool.tool || 'Unknown tool'
+        return toolName || 'Unknown tool'
     }
   }
 
   const renderToolContent = () => {
-    const commonProps = { tool, onCopy, isExpanded }
+    const status = tool.state.status
+    const commonProps = { tool, onCopy, isExpanded, status }
 
+    // For pending/running: show minimal info
+    if (status === 'pending' || status === 'running') {
+      return (
+        <YStack gap="$2" padding="$3">
+          <Text fontSize="$3" color="$color11">
+            {status === 'pending' ? 'Waiting to start...' : 'Executing...'}
+          </Text>
+          {tool.state.input && Object.keys(tool.state.input).length > 0 && (
+            <YStack gap="$1">
+              <Text fontSize="$2" color="$color10">
+                Input:
+              </Text>
+              <Text fontSize="$2" fontFamily="$mono" color="$color10">
+                {JSON.stringify(tool.state.input, null, 2)}
+              </Text>
+            </YStack>
+          )}
+        </YStack>
+      )
+    }
+
+    // For completed/error: show full content
     switch (tool.type) {
       case 'read':
         return <ReadToolRenderer {...commonProps} />
@@ -161,32 +194,6 @@ export function ToolExecutionCard({
       {isExpanded && (
         <YStack padding="$3" maxHeight={maxHeight}>
           {renderToolContent()}
-
-          {/* Metadata */}
-          {tool.state.metadata && (
-            <XStack
-              justifyContent="space-between"
-              alignItems="center"
-              marginTop="$2"
-              paddingTop="$2"
-              borderTopWidth={1}
-              borderTopColor="$borderColor"
-            >
-              <Text fontSize="$2" color="$color11">
-                Duration: {tool.state.metadata.duration || 'N/A'}
-              </Text>
-
-              {onCopy && (
-                <Button
-                  size="$2"
-                  chromeless
-                  icon={Copy}
-                  onPress={() => onCopy(tool.state.output)}
-                  color="$color11"
-                />
-              )}
-            </XStack>
-          )}
         </YStack>
       )}
     </YStack>

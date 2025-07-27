@@ -8,9 +8,14 @@ interface GrepToolRendererProps extends ToolPartRendererProps {
   isExpanded: boolean
 }
 
-export function GrepToolRenderer({ tool, isExpanded }: GrepToolRendererProps) {
+export function GrepToolRenderer({
+  tool,
+  status,
+  isExpanded,
+}: GrepToolRendererProps) {
   const { copyToClipboard } = useCopyToClipboard()
   const input = tool.state.input || {}
+  const currentStatus = status || tool.state.status
 
   const handleCopyPattern = () => {
     if (input.pattern) {
@@ -118,7 +123,19 @@ export function GrepToolRenderer({ tool, isExpanded }: GrepToolRendererProps) {
         </YStack>
       )}
 
-      {results.length > 0 && (
+      {currentStatus === 'pending' && (
+        <Text fontSize="$3" color="$color11">
+          Preparing to search...
+        </Text>
+      )}
+
+      {currentStatus === 'running' && (
+        <Text fontSize="$3" color="$color11">
+          Searching files...
+        </Text>
+      )}
+
+      {currentStatus === 'completed' && results.length > 0 && (
         <YStack gap="$2">
           <XStack alignItems="center" justifyContent="space-between">
             <Text fontSize="$2" color="$color11">
@@ -158,21 +175,16 @@ export function GrepToolRenderer({ tool, isExpanded }: GrepToolRendererProps) {
         </YStack>
       )}
 
-      {tool.state.error && (
-        <YStack gap="$2">
-          <Text fontSize="$2" color="$color11">
-            Error:
-          </Text>
-          <Text
-            fontSize="$3"
-            color="$red11"
-            backgroundColor="$background"
-            padding="$2"
-            borderRadius="$2"
-          >
-            {tool.state.error}
-          </Text>
-        </YStack>
+      {currentStatus === 'completed' && results.length === 0 && (
+        <Text fontSize="$3" color="$color11">
+          No matches found
+        </Text>
+      )}
+
+      {currentStatus === 'error' && (
+        <Text fontSize="$3" color="$red11">
+          Search failed: {tool.state.error || 'Unknown error'}
+        </Text>
       )}
     </YStack>
   )

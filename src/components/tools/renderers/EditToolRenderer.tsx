@@ -10,9 +10,15 @@ interface EditToolRendererProps extends ToolPartRendererProps {
   isExpanded: boolean
 }
 
-export function EditToolRenderer({ tool, isExpanded }: EditToolRendererProps) {
+export function EditToolRenderer({
+  tool,
+  status,
+  isExpanded,
+}: EditToolRendererProps) {
   const { copyToClipboard } = useCopyToClipboard()
   const input = tool.state.input || {}
+  const currentStatus = status || tool.state.status
+  const filePath = input?.filePath || 'Unknown file'
   const [viewMode, setViewMode] = useState<
     'unified' | 'split' | 'before' | 'after'
   >('unified')
@@ -53,7 +59,8 @@ export function EditToolRenderer({ tool, isExpanded }: EditToolRendererProps) {
       <XStack alignItems="center" gap="$2">
         <FileEdit size={16} color="$color11" />
         <Text fontSize="$3" color="$color11" flex={1} numberOfLines={1}>
-          Edit {input.filePath ? input.filePath.split('/').pop() : 'file'}
+          Edit{' '}
+          {filePath !== 'Unknown file' ? filePath.split('/').pop() : 'file'}
         </Text>
       </XStack>
     )
@@ -92,11 +99,29 @@ export function EditToolRenderer({ tool, isExpanded }: EditToolRendererProps) {
           borderRadius="$2"
           numberOfLines={1}
         >
-          {input.filePath || 'No file path'}
+          {filePath}
         </Text>
       </YStack>
 
-      {input.oldString && input.newString && (
+      {currentStatus === 'pending' && (
+        <Text fontSize="$3" color="$color11">
+          Preparing to edit file...
+        </Text>
+      )}
+
+      {currentStatus === 'running' && (
+        <Text fontSize="$3" color="$color11">
+          Editing file...
+        </Text>
+      )}
+
+      {currentStatus === 'error' && (
+        <Text fontSize="$3" color="$red11">
+          Failed to edit: {tool.state.error || 'Unknown error'}
+        </Text>
+      )}
+
+      {currentStatus === 'completed' && input.oldString && input.newString && (
         <YStack gap="$2">
           <XStack alignItems="center" justifyContent="space-between">
             <Text fontSize="$2" color="$color11">
@@ -132,7 +157,7 @@ export function EditToolRenderer({ tool, isExpanded }: EditToolRendererProps) {
         </YStack>
       )}
 
-      {tool.state.output && (
+      {currentStatus === 'completed' && tool.state.output && (
         <YStack gap="$2">
           <Text fontSize="$2" color="$color11">
             Result:
@@ -143,11 +168,7 @@ export function EditToolRenderer({ tool, isExpanded }: EditToolRendererProps) {
             padding="$2"
             borderRadius="$2"
           >
-            <Text
-              fontSize="$2"
-              fontFamily="$mono"
-              color={tool.state.status === 'completed' ? '$green11' : '$red11'}
-            >
+            <Text fontSize="$2" fontFamily="$mono" color="$green11">
               {tool.state.output}
             </Text>
           </ScrollView>

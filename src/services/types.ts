@@ -24,15 +24,29 @@ export interface Message {
   content: string
   timestamp: Date
   status?: 'sending' | 'sent' | 'error'
+  isStreaming?: boolean
   parts?: MessagePart[]
 }
 
 export interface MessagePart {
+  id?: string
   type: 'text' | 'code' | 'tool_execution' | 'file'
   content: string
   language?: string
   toolName?: string
-  toolResult?: any
+  callID?: string
+  toolResult?: {
+    status?: 'pending' | 'running' | 'completed' | 'error'
+    input?: any
+    output?: string
+    error?: string
+    time?: {
+      start?: number
+      end?: number
+    }
+    title?: string
+    metadata?: any
+  }
   synthetic?: boolean
   // File-specific properties
   mime?: string

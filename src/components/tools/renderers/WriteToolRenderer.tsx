@@ -6,13 +6,15 @@ import type { ToolPartRendererProps } from '../../../types/tools'
 import { detectLanguage } from '../../../utils/languageDetection'
 import { CodeBlock } from '../../code/CodeBlock'
 
-export function WriteToolRenderer({ tool }: ToolPartRendererProps) {
+export function WriteToolRenderer({ tool, status }: ToolPartRendererProps) {
   const { copyToClipboard } = useCopyToClipboard()
   const { input, output } = tool.state
+  const currentStatus = status || tool.state.status
+  const filePath = input?.filePath || 'Unknown file'
 
   const handleCopyPath = () => {
-    if (input.filePath) {
-      copyToClipboard(input.filePath)
+    if (filePath) {
+      copyToClipboard(filePath)
     }
   }
 
@@ -53,30 +55,50 @@ export function WriteToolRenderer({ tool }: ToolPartRendererProps) {
           borderRadius="$2"
           numberOfLines={1}
         >
-          {input.filePath || 'No file path'}
+          {filePath}
         </Text>
       </YStack>
 
-      <YStack gap="$2">
-        <XStack alignItems="center" justifyContent="space-between">
-          <Text fontSize="$2" color="$color11">
-            Content Written:
-          </Text>
-          <Button
-            size="$2"
-            chromeless
-            icon={Copy}
-            onPress={handleCopyContent}
-            pressStyle={{ backgroundColor: '$backgroundPress' }}
+      {currentStatus === 'pending' && (
+        <Text fontSize="$3" color="$color11">
+          Preparing to write file...
+        </Text>
+      )}
+
+      {currentStatus === 'running' && (
+        <Text fontSize="$3" color="$color11">
+          Writing file...
+        </Text>
+      )}
+
+      {currentStatus === 'completed' && output && (
+        <YStack gap="$2">
+          <XStack alignItems="center" justifyContent="space-between">
+            <Text fontSize="$2" color="$color11">
+              Content Written:
+            </Text>
+            <Button
+              size="$2"
+              chromeless
+              icon={Copy}
+              onPress={handleCopyContent}
+              pressStyle={{ backgroundColor: '$backgroundPress' }}
+            />
+          </XStack>
+          <CodeBlock
+            code={output}
+            language={detectLanguage(filePath)}
+            filename={filePath}
+            copyable={false}
           />
-        </XStack>
-        <CodeBlock
-          code={output}
-          language={detectLanguage(input.filePath)}
-          filename={input.filePath}
-          copyable={false}
-        />
-      </YStack>
+        </YStack>
+      )}
+
+      {currentStatus === 'error' && (
+        <Text fontSize="$3" color="$red11">
+          Failed to write: {tool.state.error || 'Unknown error'}
+        </Text>
+      )}
     </YStack>
   )
 }

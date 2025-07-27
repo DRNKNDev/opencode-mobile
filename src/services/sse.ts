@@ -1,5 +1,6 @@
 import type { EventListResponse } from '@opencode-ai/sdk/resources/event'
 import EventSource from 'react-native-sse'
+import { NETWORK_CONFIG } from '../config/constants'
 import { debug } from '../utils/debug'
 
 // SSE-specific interfaces
@@ -17,11 +18,20 @@ export interface RawSSEEvent {
 
 export type StreamResponse = EventListResponse & {
   id: string
+  sequence?: number
+  serverTimestamp?: number
 }
 
 export interface SSEEventQueue<T> {
   events: T[]
   resolveNext: ((value: IteratorResult<T>) => void) | null
+  streamEnded: boolean
+}
+
+export interface OrderedEventBuffer<T> {
+  buffer: Map<number, T>
+  expectedSequence: number
+  processingTimeout: ReturnType<typeof setTimeout> | null
   streamEnded: boolean
 }
 
@@ -44,24 +54,88 @@ export class SSEEventStream {
         Accept: 'text/event-stream',
         'Cache-Control': 'no-cache',
       },
-      timeout: this.config.timeout || 120000, // 2 minutes for streaming
+      timeout: 0, // No timeout - connection never expires
       pollingInterval: this.config.pollingInterval || 5000, // Auto-reconnect
       debug: this.config.debug || __DEV__,
     })
 
-    // Event queue to maintain async generator compatibility
+    // Ordered event buffer for proper sequencing (TUI-inspired)
+    const orderedBuffer: OrderedEventBuffer<StreamResponse> = {
+      buffer: new Map(),
+      expectedSequence: 0,
+      processingTimeout: null,
+      streamEnded: false,
+    }
+
+    // Event queue for fallback compatibility
     const eventQueue: SSEEventQueue<StreamResponse> = {
       events: [],
       resolveNext: null,
       streamEnded: false,
     }
 
+    const processOrderedEvents = () => {
+      // Process events in sequence order
+      while (orderedBuffer.buffer.has(orderedBuffer.expectedSequence)) {
+        const event = orderedBuffer.buffer.get(orderedBuffer.expectedSequence)!
+        orderedBuffer.buffer.delete(orderedBuffer.expectedSequence)
+        orderedBuffer.expectedSequence++
+
+        // Queue the ordered event
+        eventQueue.events.push(event)
+        if (eventQueue.resolveNext) {
+          const resolve = eventQueue.resolveNext
+          eventQueue.resolveNext = null
+          resolve({ value: eventQueue.events.shift()!, done: false })
+        }
+      }
+
+      // Clear processing timeout
+      if (orderedBuffer.processingTimeout) {
+        clearTimeout(orderedBuffer.processingTimeout)
+        orderedBuffer.processingTimeout = null
+      }
+    }
+
     const queueEvent = (event: StreamResponse) => {
-      eventQueue.events.push(event)
-      if (eventQueue.resolveNext) {
-        const resolve = eventQueue.resolveNext
-        eventQueue.resolveNext = null
-        resolve({ value: eventQueue.events.shift()!, done: false })
+      // If event has sequence number, use ordered processing
+      if (typeof event.sequence === 'number') {
+        orderedBuffer.buffer.set(event.sequence, event)
+        processOrderedEvents()
+
+        // Set timeout to process remaining events if some are missing
+        if (orderedBuffer.processingTimeout) {
+          clearTimeout(orderedBuffer.processingTimeout)
+        }
+        orderedBuffer.processingTimeout = setTimeout(() => {
+          debug.warn(
+            'Processing timeout - some events may be missing, continuing with available events'
+          )
+          // Process any remaining events in buffer order
+          const sortedSequences = Array.from(orderedBuffer.buffer.keys()).sort(
+            (a, b) => a - b
+          )
+          for (const seq of sortedSequences) {
+            const event = orderedBuffer.buffer.get(seq)!
+            orderedBuffer.buffer.delete(seq)
+            eventQueue.events.push(event)
+            if (eventQueue.resolveNext) {
+              const resolve = eventQueue.resolveNext
+              eventQueue.resolveNext = null
+              resolve({ value: eventQueue.events.shift()!, done: false })
+            }
+          }
+          orderedBuffer.expectedSequence =
+            Math.max(...sortedSequences, orderedBuffer.expectedSequence) + 1
+        }, NETWORK_CONFIG.retryBaseDelay) // Use centralized retry delay for missing events
+      } else {
+        // Fallback to immediate processing for events without sequence
+        eventQueue.events.push(event)
+        if (eventQueue.resolveNext) {
+          const resolve = eventQueue.resolveNext
+          eventQueue.resolveNext = null
+          resolve({ value: eventQueue.events.shift()!, done: false })
+        }
       }
     }
 
@@ -73,10 +147,6 @@ export class SSEEventStream {
 
       this.eventSource.addEventListener('error', (event: any) => {
         debug.error('SSE error:', event)
-        eventQueue.streamEnded = true
-        if (eventQueue.resolveNext) {
-          eventQueue.resolveNext({ value: undefined as any, done: true })
-        }
       })
 
       // Handle OpenCode server events using generic message event
@@ -101,6 +171,8 @@ export class SSEEventStream {
           const streamResponse: StreamResponse = {
             ...data,
             id: Math.random().toString(36).substring(2, 15),
+            sequence: (data as any).sequence,
+            serverTimestamp: (data as any).serverTimestamp || Date.now() / 1000,
           }
           queueEvent(streamResponse)
         } else {

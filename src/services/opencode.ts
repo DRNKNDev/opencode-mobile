@@ -1,5 +1,6 @@
 import Opencode from '@opencode-ai/sdk'
 import type { Mode } from '../components/modals/ModeSelector'
+import { NETWORK_CONFIG } from '../config/constants'
 import { debug } from '../utils/debug'
 import { SSEEventStream, type StreamResponse } from './sse'
 import type { Message, Model, Session } from './types'
@@ -30,8 +31,8 @@ class OpenCodeService {
     this.config = config
     this.client = new Opencode({
       baseURL: config.baseURL,
-      timeout: config.timeout || 60000, // 1 minute default
-      maxRetries: config.maxRetries || 2,
+      timeout: config.timeout || NETWORK_CONFIG.timeout, // Use centralized timeout config
+      maxRetries: config.maxRetries || NETWORK_CONFIG.maxRetries,
     })
   }
 
@@ -326,7 +327,7 @@ class OpenCodeService {
       // Create SSE event stream with config - now directly outputs StreamResponse
       const sseStream = new SSEEventStream({
         baseURL: this.config!.baseURL,
-        timeout: 120000, // 2 minutes for streaming
+        timeout: NETWORK_CONFIG.timeout, // Use centralized timeout for streaming
         pollingInterval: 5000, // Auto-reconnect
         debug: __DEV__,
       })
