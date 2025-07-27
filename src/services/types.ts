@@ -29,6 +29,7 @@ export interface Message {
 }
 
 export interface MessagePart {
+  id?: string
   type: 'text' | 'code' | 'tool_execution' | 'file'
   content: string
   language?: string
