@@ -1,6 +1,6 @@
+import { ChevronDown, ChevronUp } from '@tamagui/lucide-icons'
 import React from 'react'
-import { ChevronDown, ChevronUp, Copy } from '@tamagui/lucide-icons'
-import { Button, Text, XStack, YStack } from 'tamagui'
+import { Text, XStack, YStack } from 'tamagui'
 import type { ToolExecutionCardProps } from '../../types/tools'
 import { BashToolRenderer } from './renderers/BashToolRenderer'
 import { EditToolRenderer } from './renderers/EditToolRenderer'
@@ -17,15 +17,6 @@ export function ToolExecutionCard({
   onCopy,
   maxHeight = 700,
 }: ToolExecutionCardProps) {
-  // DEBUG: Log what data ToolExecutionCard receives
-  console.log('🎯 ToolExecutionCard received:', {
-    toolId: tool.id,
-    toolName: tool.tool,
-    toolType: tool.type,
-    toolState: tool.state,
-    isExpanded,
-    fullTool: tool,
-  })
   const getStatusColor = () => {
     switch (tool.state.status) {
       case 'completed':
@@ -203,32 +194,6 @@ export function ToolExecutionCard({
       {isExpanded && (
         <YStack padding="$3" maxHeight={maxHeight}>
           {renderToolContent()}
-
-          {/* Metadata */}
-          {tool.state.metadata && (
-            <XStack
-              justifyContent="space-between"
-              alignItems="center"
-              marginTop="$2"
-              paddingTop="$2"
-              borderTopWidth={1}
-              borderTopColor="$borderColor"
-            >
-              <Text fontSize="$2" color="$color11">
-                Duration: {tool.state.metadata.duration || 'N/A'}
-              </Text>
-
-              {onCopy && (
-                <Button
-                  size="$2"
-                  chromeless
-                  icon={Copy}
-                  onPress={() => onCopy(tool.state.output)}
-                  color="$color11"
-                />
-              )}
-            </XStack>
-          )}
         </YStack>
       )}
     </YStack>
