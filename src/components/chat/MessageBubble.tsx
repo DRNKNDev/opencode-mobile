@@ -74,10 +74,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             tool: part.toolName || 'unknown',
             type: (part.toolName as any) || 'bash',
             state: {
-              status: 'completed',
+              status: part.toolResult.status || 'completed',
               input: part.toolResult.input || {},
               output: part.toolResult.output || part.content,
               error: part.toolResult.error,
+              time: part.toolResult.time,
+              title: part.toolResult.title,
+              metadata: part.toolResult.metadata,
             },
           }
 
@@ -87,6 +90,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             <ToolExecutionCard
               key={index}
               tool={toolPart}
+              status={part.toolResult.status}
               isExpanded={expandedTools.has(toolPart.id)}
               onToggleExpanded={handleToggleToolExpanded}
               onCopy={copyToClipboard}
