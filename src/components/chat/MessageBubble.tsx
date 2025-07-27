@@ -78,9 +78,11 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               input: part.toolResult.input || {},
               output: part.toolResult.output || part.content,
               error: part.toolResult.error,
-              time: part.toolResult.time,
-              title: part.toolResult.title,
-              metadata: part.toolResult.metadata,
+              metadata: {
+                time: part.toolResult.time,
+                title: part.toolResult.title,
+                ...part.toolResult.metadata,
+              },
             },
           }
 
