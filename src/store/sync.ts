@@ -156,6 +156,13 @@ class SyncService {
     for (const part of parts) {
       if (part.type === 'text') {
         textContent = part.text
+        // Also create individual text part
+        const textPart: MessagePart = {
+          type: 'text',
+          content: part.text,
+          synthetic: part.synthetic,
+        }
+        toolParts.push(textPart) // Add to parts array alongside tool parts
       } else if (part.type === 'tool') {
         const callID = part.callID || `${part.tool}-${Date.now()}`
         if (!toolPartsByCallID.has(callID)) {
@@ -230,27 +237,28 @@ class SyncService {
     actions.messages.addMessage(message)
   }
   private handleTextPart(messageId: string, sessionId: string, part: any) {
+    // Create text part using same pattern as tool parts
+    const textPart: MessagePart = {
+      type: 'text',
+      content: part.text,
+      synthetic: part.synthetic,
+    }
+
+    // Use existing addPartToMessage logic (same as tool parts)
+    this.addPartToMessage(messageId, sessionId, textPart, part)
+
+    // Also update message.content for accumulated text
     const currentMessages = store$.messages.bySessionId[sessionId].get() || []
     const messageIndex = currentMessages.findIndex(m => m.id === messageId)
 
     if (messageIndex >= 0) {
-      const currentMessage = currentMessages[messageIndex]
-
-      const updatedMessage = {
-        ...currentMessage,
-        content: part.text, // SSE provides full accumulated text
-        isStreaming: true,
-      }
-
       store$.messages.bySessionId[sessionId].set(messages =>
-        messages.map(m => (m.id === messageId ? updatedMessage : m))
+        messages.map(m =>
+          m.id === messageId
+            ? { ...m, content: part.text, isStreaming: true }
+            : m
+        )
       )
-    } else {
-      // Message doesn't exist - queue the part for later
-      if (!this.pendingParts.has(messageId)) {
-        this.pendingParts.set(messageId, [])
-      }
-      this.pendingParts.get(messageId)!.push(part)
     }
   }
 
@@ -294,11 +302,20 @@ class SyncService {
     if (messageIndex >= 0) {
       const currentMessage = currentMessages[messageIndex]
 
-      // Find existing tool part by callID (not toolName)
+      // Find existing part by type and identifier
       const existingPartIndex =
-        currentMessage.parts?.findIndex(
-          p => p.type === 'tool_execution' && p.callID === newPart.callID
-        ) ?? -1
+        currentMessage.parts?.findIndex(p => {
+          if (
+            p.type === 'tool_execution' &&
+            newPart.type === 'tool_execution'
+          ) {
+            return p.callID === newPart.callID
+          }
+          if (p.type === 'text' && newPart.type === 'text') {
+            return !p.synthetic && !newPart.synthetic // Match non-synthetic text parts
+          }
+          return false
+        }) ?? -1
 
       let updatedParts: MessagePart[]
       if (existingPartIndex >= 0) {
