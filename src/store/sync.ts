@@ -300,7 +300,7 @@ class SyncService {
         parts: [],
         timestamp: serverTimestamp
           ? new Date(serverTimestamp * 1000)
-          : new Date(0), // Use server timestamp or placeholder
+          : new Date(), // Use current timestamp
         status: 'sent',
         isStreaming: true,
       }
