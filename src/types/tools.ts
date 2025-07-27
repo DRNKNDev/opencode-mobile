@@ -37,6 +37,8 @@ export interface ToolExecutionCardProps {
 export interface ToolPartRendererProps {
   tool: ToolPart
   onCopy?: (content: string) => void
+  status?: 'pending' | 'running' | 'completed' | 'error'
+  isExpanded?: boolean
 }
 
 export interface ToolStatusConfig {
