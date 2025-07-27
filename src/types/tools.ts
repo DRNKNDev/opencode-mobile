@@ -28,6 +28,7 @@ export type ToolPartType =
 
 export interface ToolExecutionCardProps {
   tool: ToolPart
+  status?: 'pending' | 'running' | 'completed' | 'error'
   isExpanded?: boolean
   onToggleExpanded: (toolId: string) => void
   onCopy?: (content: string) => void
