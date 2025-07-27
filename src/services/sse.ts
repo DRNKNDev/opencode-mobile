@@ -147,10 +147,6 @@ export class SSEEventStream {
 
       this.eventSource.addEventListener('error', (event: any) => {
         debug.error('SSE error:', event)
-        eventQueue.streamEnded = true
-        if (eventQueue.resolveNext) {
-          eventQueue.resolveNext({ value: undefined as any, done: true })
-        }
       })
 
       // Handle OpenCode server events using generic message event
