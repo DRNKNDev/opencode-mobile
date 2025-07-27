@@ -120,7 +120,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               </Text>
             ) : (
               <YStack width="100%">
-                <MarkdownRenderer content={message.content} />
+                <MarkdownRenderer content={part.content} />
               </YStack>
             )}
           </Card>
