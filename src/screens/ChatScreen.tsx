@@ -52,13 +52,19 @@ export default function ChatScreen() {
 
   const isTablet = width > 768
 
-  // Sort messages by timestamp to ensure chronological order
+  // Sort all messages chronologically by timestamp
   const sortedMessages = useMemo(() => {
-    return messages.sort(
-      (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
-    )
-  }, [messages])
+    return messages.sort((a, b) => {
+      const timeA = a.timestamp.getTime()
+      const timeB = b.timestamp.getTime()
 
+      // Handle placeholder timestamps (epoch time) - keep streaming messages at end
+      if (timeA === 0) return 1
+      if (timeB === 0) return -1
+
+      return timeA - timeB
+    })
+  }, [messages])
   const scrollToBottom = useCallback(() => {
     listRef.current?.scrollToEnd({ animated: true })
   }, [])
@@ -88,6 +94,20 @@ export default function ChatScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortedMessages, scrollToBottom])
+
+  // Auto-scroll during streaming if user is near bottom
+  useEffect(() => {
+    const hasStreamingMessage = sortedMessages.some(m => m.isStreaming)
+
+    if (hasStreamingMessage && isNearBottom) {
+      // Smooth scroll during streaming
+      const scrollInterval = setInterval(() => {
+        scrollToBottom()
+      }, 200)
+
+      return () => clearInterval(scrollInterval)
+    }
+  }, [sortedMessages, isNearBottom, scrollToBottom])
 
   const handleScroll = useCallback(
     (event: {
