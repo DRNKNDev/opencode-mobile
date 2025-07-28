@@ -14,6 +14,7 @@ import { Button, Text, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { MessageBubble } from '../components/chat/MessageBubble'
 import { Header } from '../components/ui/Header'
+import { MessageSkeleton } from '../components/ui/SkeletonLoader'
 import type { Message } from '../services/types'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
@@ -72,8 +73,10 @@ export default function ChatScreen() {
   // Set current session and load messages when id changes
   useEffect(() => {
     if (id) {
-      actions.sessions.selectSession(id)
-      actions.messages.loadMessages(id)
+      // Load messages asynchronously without blocking UI
+      actions.messages.loadMessages(id).catch(error => {
+        console.error('Failed to load messages:', error)
+      })
     }
   }, [id])
 
@@ -210,21 +213,7 @@ export default function ChatScreen() {
           width="100%"
         >
           {isLoading ? (
-            <YStack
-              flex={1}
-              justifyContent="center"
-              alignItems="center"
-              gap="$4"
-              padding="$4"
-            >
-              <Text
-                fontSize={isTablet ? '$5' : '$4'}
-                color="$color11"
-                textAlign="center"
-              >
-                Loading messages...
-              </Text>
-            </YStack>
+            <MessageSkeleton />
           ) : sortedMessages.length === 0 ? (
             <YStack
               flex={1}

@@ -198,8 +198,8 @@ class OpenCodeService {
           content: content,
           timestamp: new Date(
             message.role === 'user'
-              ? (message as Opencode.UserMessage).time.created * 1000
-              : (message as Opencode.AssistantMessage).time.created * 1000
+              ? (message as Opencode.UserMessage).time.created
+              : (message as Opencode.AssistantMessage).time.created
           ),
           status: 'sent' as const,
           parts: item.parts

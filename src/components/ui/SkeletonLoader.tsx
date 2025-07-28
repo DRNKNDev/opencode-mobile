@@ -40,13 +40,61 @@ export function SkeletonLoader({
 
 export function MessageSkeleton() {
   return (
-    <YStack gap="$2" padding="$4">
-      <XStack gap="$3" alignItems="center">
-        <SkeletonLoader width={20} height={20} borderRadius="$10" />
-        <SkeletonLoader width={80} height={16} />
-      </XStack>
-      <SkeletonLoader width="90%" height={16} />
-      <SkeletonLoader width="70%" height={16} />
+    <YStack gap="$4" padding="$4">
+      {[1, 2, 3].map(i => (
+        <YStack key={i} gap="$3">
+          {/* Assistant message skeleton */}
+          <XStack justifyContent="flex-start" paddingHorizontal="$4">
+            <YStack flex={1} gap="$2" maxWidth="90%">
+              {/* Small header line */}
+              <YStack
+                height={16}
+                backgroundColor="$backgroundHover"
+                borderRadius="$2"
+                width="30%"
+                opacity={0.8}
+              />
+              {/* Main content block */}
+              <YStack
+                height={80}
+                backgroundColor="$backgroundPress"
+                borderRadius="$2"
+                opacity={0.6}
+              />
+              {/* Timestamp line */}
+              <YStack
+                height={12}
+                backgroundColor="$color11"
+                borderRadius="$2"
+                width="20%"
+                opacity={0.4}
+              />
+            </YStack>
+          </XStack>
+
+          {/* User message skeleton */}
+          <XStack justifyContent="flex-end" paddingHorizontal="$4">
+            <YStack gap="$2" maxWidth="80%" alignItems="flex-end">
+              {/* User message bubble */}
+              <YStack
+                height={40}
+                backgroundColor="$blue10"
+                borderRadius="$2"
+                width="60%"
+                opacity={0.3}
+              />
+              {/* Timestamp */}
+              <YStack
+                height={12}
+                backgroundColor="$color11"
+                borderRadius="$2"
+                width="25%"
+                opacity={0.4}
+              />
+            </YStack>
+          </XStack>
+        </YStack>
+      ))}
     </YStack>
   )
 }
