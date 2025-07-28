@@ -29,10 +29,41 @@ class OpenCodeService {
 
   initialize(config: OpenCodeConfig): void {
     this.config = config
+    
+    let baseURL = config.baseURL
+    let defaultHeaders: Record<string, string> | undefined
+    let defaultQuery: Record<string, string> | undefined
+    
+    try {
+      const parsedUrl = new URL(config.baseURL)
+      
+      // Extract basic auth
+      if (parsedUrl.username || parsedUrl.password) {
+        const credentials = btoa(`${parsedUrl.username}:${parsedUrl.password}`)
+        defaultHeaders = { Authorization: `Basic ${credentials}` }
+      }
+      
+      // Extract query parameters
+      if (parsedUrl.search) {
+        defaultQuery = {}
+        parsedUrl.searchParams.forEach((value, key) => {
+          defaultQuery![key] = value
+        })
+      }
+      
+      // Clean URL (remove auth and query)
+      baseURL = `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}`
+    } catch {
+      // If URL parsing fails, use original URL
+      baseURL = config.baseURL
+    }
+    
     this.client = new Opencode({
-      baseURL: config.baseURL,
-      timeout: config.timeout || NETWORK_CONFIG.timeout, // Use centralized timeout config
+      baseURL,
+      timeout: config.timeout || NETWORK_CONFIG.timeout,
       maxRetries: config.maxRetries || NETWORK_CONFIG.maxRetries,
+      defaultHeaders,
+      defaultQuery,
     })
   }
 
