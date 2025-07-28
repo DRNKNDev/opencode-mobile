@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "Patjoe",
-    "slug": "patjoe",
+    "name": "Opencode",
+    "slug": "opencode",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "patjoe",
+    "scheme": "opencode",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.patjoe.mobile",
+      "bundleIdentifier": "dev.drnkn.opencode",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -21,7 +21,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.patjoe.mobile"
+      "package": "dev.drnkn.opencode"
     },
     "web": {
       "bundler": "metro",
