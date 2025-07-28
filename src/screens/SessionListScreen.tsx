@@ -31,8 +31,11 @@ export default function SessionListScreen() {
   const model = useSelector(selectedModel)
   const currentMode = useSelector(selectedMode)
   const sessions = useSelector(sessionsSortedByTime)
-  const isLoading = useSelector(store$.sessions.isLoading)
-  const isCreating = useSelector(store$.sessions.isCreating)
+  const sessionState = useSelector(() => ({
+    isLoading: store$.sessions.isLoading.get(),
+    isCreating: store$.sessions.isCreating.get(),
+  }))
+  const { isLoading, isCreating } = sessionState
   const isDeleting = false // TODO: Add per-session deletion state
   const isRefreshing = isLoading
 
