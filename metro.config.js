@@ -1,4 +1,5 @@
 const { getDefaultConfig } = require('expo/metro-config')
+const { withTamagui } = require('@tamagui/metro-plugin')
 
 module.exports = (() => {
   const config = getDefaultConfig(__dirname)
@@ -15,5 +16,8 @@ module.exports = (() => {
     sourceExts: [...resolver.sourceExts, 'svg'],
   }
 
-  return config
+  return withTamagui(config, {
+    components: ['tamagui'],
+    config: './tamagui.config.ts',
+  })
 })()
