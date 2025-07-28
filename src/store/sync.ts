@@ -153,7 +153,7 @@ class SyncService {
       // Update existing streaming message with proper server timestamp
       message = {
         ...existingMessage,
-        timestamp: new Date(messageInfo.time.created * 1000), // Always use server timestamp
+        timestamp: new Date(messageInfo.time.created),
         isStreaming: false, // Mark as completed
       }
     } else {
@@ -163,7 +163,7 @@ class SyncService {
         sessionId: messageInfo.sessionID,
         role: messageInfo.role,
         content: '',
-        timestamp: new Date(messageInfo.time.created * 1000), // Always use server timestamp
+        timestamp: new Date(messageInfo.time.created),
         status: 'sent',
         isStreaming: false,
       }
