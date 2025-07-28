@@ -45,10 +45,10 @@
     },
     "extra": {
       "router": {},
+      "debug": true,
       "eas": {
-        "projectId": "7a4d3916-5a3b-4161-935b-a8a58df3829d"
-      },
-      "debug": true
+        "projectId": "dda90611-9db0-4797-9103-0110a1d915f6"
+      }
     }
   }
 }
