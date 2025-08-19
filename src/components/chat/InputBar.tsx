@@ -1,9 +1,11 @@
 import { useSelector } from '@legendapp/state/react'
 import {
   ArrowUpCircle,
+  AsteriskSquare,
   ChevronDown,
   Code,
   ListTodo,
+  Settings,
   StopCircle,
 } from '@tamagui/lucide-icons'
 import React, { useState } from 'react'
@@ -116,12 +118,14 @@ export function InputBar({
             }}
             aria-label="Select agent"
           >
-            {currentAgent?.name === 'build' ? (
+            {currentAgent?.name === 'general' ? (
+              <AsteriskSquare size={16} color="$purple10" />
+            ) : currentAgent?.name === 'build' ? (
               <Code size={16} color="$blue10" />
             ) : currentAgent?.name === 'plan' ? (
               <ListTodo size={16} color="$orange10" />
             ) : (
-              <Code size={16} color="$blue10" />
+              <Settings size={16} color="$gray10" />
             )}
           </Button>
 
