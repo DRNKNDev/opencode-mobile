@@ -1,7 +1,7 @@
 import { ChevronRight, Share2, Trash2 } from '@tamagui/lucide-icons'
 import React from 'react'
 import { Button, Card, Text, XStack, YStack } from 'tamagui'
-import type { Session } from '../../services/types'
+import type { Session } from '@opencode-ai/sdk'
 
 export interface SessionCardProps {
   session: Session

@@ -1,3 +1,4 @@
+import { useSelector } from '@legendapp/state/react'
 import {
   ArrowUpCircle,
   ChevronDown,
@@ -6,13 +7,12 @@ import {
   StopCircle,
 } from '@tamagui/lucide-icons'
 import React, { useState } from 'react'
-import { useSelector } from '@legendapp/state/react'
 import type { InputProps } from 'tamagui'
 import { Button, Text, XStack, YStack } from 'tamagui'
 import { store$ } from '../../store'
-import { selectedModel, selectedMode } from '../../store/computed'
+import { selectedAgent } from '../../store/computed'
+import { AgentSelector } from '../modals/AgentSelector'
 import { ModelSelector } from '../modals/ModelSelector'
-import { ModeSelector } from '../modals/ModeSelector'
 import { TextArea } from '../ui/TextArea'
 
 export interface InputBarProps {
@@ -49,17 +49,28 @@ export function InputBar({
   paddingVertical,
 }: InputBarProps) {
   const availableModels = useSelector(store$.models.available)
-  const model = useSelector(selectedModel)
-  const currentMode = useSelector(selectedMode)
+  const providers = useSelector(store$.models.providers)
+  const currentAgent = useSelector(selectedAgent)
   const [showModelSelector, setShowModelSelector] = useState(false)
-  const [showModeSelector, setShowModeSelector] = useState(false)
+  const [showAgentSelector, setShowAgentSelector] = useState(false)
   const canSend = value.trim().length > 0 && !disabled
 
-  // Use currentModel prop if provided, otherwise fall back to selectedModel from store
-  const effectiveModel = currentModel || model?.id || ''
+  const getModelName = (modelId: string | undefined): string => {
+    if (!modelId) return 'Select Model'
 
-  const getModelName = (modelId: string): string => {
-    const foundModel = availableModels.find(m => m.id === modelId)
+    // First try to find in availableModels array
+    let foundModel = availableModels.find(m => m.id === modelId)
+
+    // If not found, search through providers' models
+    if (!foundModel && providers.length > 0) {
+      for (const provider of providers) {
+        if (provider.models && provider.models[modelId]) {
+          foundModel = provider.models[modelId]
+          break
+        }
+      }
+    }
+
     return foundModel?.name || modelId
   }
 
@@ -98,16 +109,16 @@ export function InputBar({
           <Button
             size="$3"
             chromeless
-            onPress={() => setShowModeSelector(true)}
+            onPress={() => setShowAgentSelector(true)}
             disabled={disabled}
             pressStyle={{
               backgroundColor: '$backgroundPress',
             }}
-            aria-label="Select mode"
+            aria-label="Select agent"
           >
-            {currentMode?.name === 'build' ? (
+            {currentAgent?.name === 'build' ? (
               <Code size={16} color="$blue10" />
-            ) : currentMode?.name === 'plan' ? (
+            ) : currentAgent?.name === 'plan' ? (
               <ListTodo size={16} color="$orange10" />
             ) : (
               <Code size={16} color="$blue10" />
@@ -126,7 +137,7 @@ export function InputBar({
             aria-label="Select AI model"
           >
             <Text fontSize="$3" color="$color11" numberOfLines={1}>
-              {getModelName(effectiveModel)}
+              {getModelName(currentModel)}
             </Text>
           </Button>
         </XStack>
@@ -151,16 +162,16 @@ export function InputBar({
       <ModelSelector
         open={showModelSelector}
         onOpenChange={setShowModelSelector}
-        selectedModel={effectiveModel}
+        selectedModel={currentModel || ''}
         onModelSelect={modelId => {
           onModelSelect?.(modelId)
           setShowModelSelector(false)
         }}
       />
 
-      <ModeSelector
-        open={showModeSelector}
-        onOpenChange={setShowModeSelector}
+      <AgentSelector
+        open={showAgentSelector}
+        onOpenChange={setShowAgentSelector}
       />
     </YStack>
   )
