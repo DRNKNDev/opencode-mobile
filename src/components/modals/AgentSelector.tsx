@@ -1,6 +1,12 @@
 import { useSelector } from '@legendapp/state/react'
 import type { Agent } from '@opencode-ai/sdk'
-import { Brain, Code, ListTodo, Settings, X } from '@tamagui/lucide-icons'
+import {
+  AsteriskSquare,
+  Code,
+  ListTodo,
+  Settings,
+  X,
+} from '@tamagui/lucide-icons'
 import { RadioGroup } from '@tamagui/radio-group'
 import { Sheet } from '@tamagui/sheet'
 import React, { useState } from 'react'
@@ -28,14 +34,12 @@ export function AgentSelector({ open, onOpenChange }: AgentSelectorProps) {
   // UI helper functions
   const getDisplayName = (agent: Agent) => {
     switch (agent.name) {
+      case 'general':
+        return 'General Agent'
       case 'build':
         return 'Build Agent'
       case 'plan':
         return 'Plan Agent'
-      case 'review':
-        return 'Review Agent'
-      case 'debug':
-        return 'Debug Agent'
       default:
         return (
           agent.name.charAt(0).toUpperCase() + agent.name.slice(1) + ' Agent'
@@ -49,14 +53,12 @@ export function AgentSelector({ open, onOpenChange }: AgentSelectorProps) {
     }
 
     switch (agent.name) {
+      case 'general':
+        return 'General-purpose agent for diverse tasks'
       case 'build':
         return 'Write, edit, and execute code with full tool access'
       case 'plan':
         return 'Read and analyze code without making changes'
-      case 'review':
-        return 'Review code and provide feedback'
-      case 'debug':
-        return 'Debug and troubleshoot code issues'
       default: {
         const deniedTools = Object.entries(agent.tools || {})
           .filter(([_, enabled]) => !enabled)
@@ -73,14 +75,12 @@ export function AgentSelector({ open, onOpenChange }: AgentSelectorProps) {
 
   const getIcon = (agent: Agent) => {
     switch (agent.name) {
+      case 'general':
+        return AsteriskSquare
       case 'build':
         return Code
       case 'plan':
         return ListTodo
-      case 'review':
-        return Brain
-      case 'debug':
-        return Settings
       default:
         return Settings
     }
@@ -88,16 +88,14 @@ export function AgentSelector({ open, onOpenChange }: AgentSelectorProps) {
 
   const getColor = (agent: Agent) => {
     switch (agent.name) {
+      case 'general':
+        return '$purple10'
       case 'build':
         return '$blue10'
       case 'plan':
         return '$orange10'
-      case 'review':
-        return '$green10'
-      case 'debug':
-        return '$red10'
       default:
-        return '$purple10'
+        return '$gray10'
     }
   }
 
@@ -175,111 +173,118 @@ export function AgentSelector({ open, onOpenChange }: AgentSelectorProps) {
               </Text>
             </YStack>
           ) : (
-            <RadioGroup
-              value={currentSelectedAgent?.name || ''}
-              onValueChange={handleAgentSelect}
-              name={`agent-selector-${instanceId}`}
+            <Sheet.ScrollView
+              height={400}
+              flex={0}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
             >
-              <YStack gap="$3">
-                {agents.map(agent => {
-                  // Ensure agent has valid name
-                  if (!agent?.name) return null
+              <RadioGroup
+                value={currentSelectedAgent?.name || ''}
+                onValueChange={handleAgentSelect}
+                name={`agent-selector-${instanceId}`}
+              >
+                <YStack gap="$3" paddingRight="$2">
+                  {agents.map(agent => {
+                    // Ensure agent has valid name
+                    if (!agent?.name) return null
 
-                  const Icon = getIcon(agent)
-                  const available = isAvailable(agent)
-                  const color = getColor(agent)
+                    const Icon = getIcon(agent)
+                    const available = isAvailable(agent)
+                    const color = getColor(agent)
 
-                  return (
-                    <YStack key={agent.name}>
-                      <XStack
-                        alignItems="center"
-                        gap="$3"
-                        padding="$3"
-                        borderRadius="$4"
-                        backgroundColor="$backgroundHover"
-                        opacity={available ? 1 : 0.5}
-                        pressStyle={
-                          available
-                            ? {
-                                backgroundColor: '$backgroundPress',
-                              }
-                            : undefined
-                        }
-                        onPress={() =>
-                          available && handleAgentSelect(agent.name)
-                        }
-                      >
-                        <RadioGroup.Item
-                          value={agent.name}
-                          id={`${instanceId}-${agent.name}`}
-                          size="$4"
-                          disabled={!available}
+                    return (
+                      <YStack key={agent.name}>
+                        <XStack
+                          alignItems="center"
+                          gap="$3"
+                          padding="$3"
+                          borderRadius="$4"
+                          backgroundColor="$backgroundHover"
+                          opacity={available ? 1 : 0.5}
+                          pressStyle={
+                            available
+                              ? {
+                                  backgroundColor: '$backgroundPress',
+                                }
+                              : undefined
+                          }
+                          onPress={() =>
+                            available && handleAgentSelect(agent.name)
+                          }
                         >
-                          <RadioGroup.Indicator />
-                        </RadioGroup.Item>
+                          <RadioGroup.Item
+                            value={agent.name}
+                            id={`${instanceId}-${agent.name}`}
+                            size="$4"
+                            disabled={!available}
+                          >
+                            <RadioGroup.Indicator />
+                          </RadioGroup.Item>
 
-                        <Icon
-                          size={20}
-                          color={available ? color : '$color11'}
-                        />
+                          <Icon
+                            size={20}
+                            color={available ? color : '$color11'}
+                          />
 
-                        <YStack flex={1}>
-                          <XStack alignItems="center" gap="$2">
-                            <Text
-                              fontSize="$4"
-                              fontWeight="500"
-                              color={
-                                currentSelectedAgent?.name === agent.name
-                                  ? color
-                                  : '$color'
-                              }
-                            >
-                              {getDisplayName(agent)}
+                          <YStack flex={1}>
+                            <XStack alignItems="center" gap="$2">
+                              <Text
+                                fontSize="$4"
+                                fontWeight="500"
+                                color={
+                                  currentSelectedAgent?.name === agent.name
+                                    ? color
+                                    : '$color'
+                                }
+                              >
+                                {getDisplayName(agent)}
+                              </Text>
+                              {!available && (
+                                <Text
+                                  fontSize="$2"
+                                  color="$color11"
+                                  backgroundColor="$backgroundHover"
+                                  paddingHorizontal="$2"
+                                  paddingVertical="$1"
+                                  borderRadius="$2"
+                                >
+                                  Coming Soon
+                                </Text>
+                              )}
+                              {agent.builtIn && (
+                                <Text
+                                  fontSize="$2"
+                                  color="$blue10"
+                                  backgroundColor="$blue3"
+                                  paddingHorizontal="$2"
+                                  paddingVertical="$1"
+                                  borderRadius="$2"
+                                >
+                                  Built-in
+                                </Text>
+                              )}
+                            </XStack>
+                            <Text fontSize="$3" color="$color11">
+                              {getDescription(agent)}
                             </Text>
-                            {!available && (
+                            {agent.mode && (
                               <Text
                                 fontSize="$2"
                                 color="$color11"
-                                backgroundColor="$backgroundHover"
-                                paddingHorizontal="$2"
-                                paddingVertical="$1"
-                                borderRadius="$2"
+                                fontWeight="300"
                               >
-                                Coming Soon
+                                Mode: {agent.mode}
                               </Text>
                             )}
-                            {agent.builtIn && (
-                              <Text
-                                fontSize="$2"
-                                color="$blue10"
-                                backgroundColor="$blue3"
-                                paddingHorizontal="$2"
-                                paddingVertical="$1"
-                                borderRadius="$2"
-                              >
-                                Built-in
-                              </Text>
-                            )}
-                          </XStack>
-                          <Text fontSize="$3" color="$color11">
-                            {getDescription(agent)}
-                          </Text>
-                          {agent.mode && (
-                            <Text
-                              fontSize="$2"
-                              color="$color11"
-                              fontWeight="300"
-                            >
-                              Mode: {agent.mode}
-                            </Text>
-                          )}
-                        </YStack>
-                      </XStack>
-                    </YStack>
-                  )
-                })}
-              </YStack>
-            </RadioGroup>
+                          </YStack>
+                        </XStack>
+                      </YStack>
+                    )
+                  })}
+                </YStack>
+              </RadioGroup>
+            </Sheet.ScrollView>
           )}
         </YStack>
       </Sheet.Frame>
