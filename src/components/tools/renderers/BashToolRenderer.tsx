@@ -3,22 +3,43 @@ import { Terminal, Copy } from '@tamagui/lucide-icons'
 import { YStack, XStack, Text, Button } from 'tamagui'
 import { CodeBlock } from '../../code/CodeBlock'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
-import type { ToolPartRendererProps } from '../../../types/tools'
+import type { ToolPart } from '@opencode-ai/sdk'
 
-export function BashToolRenderer({ tool, status }: ToolPartRendererProps) {
+interface BashToolRendererProps {
+  part: ToolPart
+  onCopy?: (content: string) => void
+  isExpanded?: boolean
+}
+
+export function BashToolRenderer({ part }: BashToolRendererProps) {
   const { copyToClipboard } = useCopyToClipboard()
-  const { input, output, error } = tool.state
-  const currentStatus = status || tool.state.status
+
+  // Helper function to get command from input
+  const getCommand = (): string => {
+    switch (part.state.status) {
+      case 'completed':
+      case 'running':
+      case 'error':
+        return (
+          (part.state.input as { command?: string })?.command || 'No command'
+        )
+      case 'pending':
+        return 'No command'
+      default:
+        return 'No command'
+    }
+  }
 
   const handleCopyCommand = () => {
-    if (input.command) {
-      copyToClipboard(input.command)
+    const command = getCommand()
+    if (command !== 'No command') {
+      copyToClipboard(command)
     }
   }
 
   const handleCopyOutput = () => {
-    if (output) {
-      copyToClipboard(output)
+    if (part.state.status === 'completed') {
+      copyToClipboard(part.state.output)
     }
   }
 
@@ -53,12 +74,12 @@ export function BashToolRenderer({ tool, status }: ToolPartRendererProps) {
           padding="$2"
           borderRadius="$2"
         >
-          $ {input.command || 'No command'}
+          $ {getCommand()}
         </Text>
       </YStack>
 
       {/* Show output only for completed state */}
-      {currentStatus === 'completed' && output && (
+      {part.state.status === 'completed' && (
         <YStack gap="$2">
           <XStack alignItems="center" justifyContent="space-between">
             <Text fontSize="$2" color="$color11">
@@ -73,7 +94,7 @@ export function BashToolRenderer({ tool, status }: ToolPartRendererProps) {
             />
           </XStack>
           <CodeBlock
-            code={output}
+            code={part.state.output}
             language="bash"
             showLineNumbers={false}
             copyable={false}
@@ -82,7 +103,7 @@ export function BashToolRenderer({ tool, status }: ToolPartRendererProps) {
       )}
 
       {/* Show error for error state */}
-      {currentStatus === 'error' && error && (
+      {part.state.status === 'error' && (
         <YStack gap="$2">
           <Text fontSize="$2" color="$color11">
             Error:
@@ -95,16 +116,16 @@ export function BashToolRenderer({ tool, status }: ToolPartRendererProps) {
             borderColor="$red10"
           >
             <Text fontFamily="$mono" fontSize="$3" color="$red10">
-              {error}
+              {part.state.error}
             </Text>
           </YStack>
         </YStack>
       )}
 
       {/* Show loading for pending/running */}
-      {(currentStatus === 'pending' || currentStatus === 'running') && (
+      {(part.state.status === 'pending' || part.state.status === 'running') && (
         <Text fontSize="$3" color="$color11">
-          {currentStatus === 'pending'
+          {part.state.status === 'pending'
             ? 'Waiting to execute...'
             : 'Executing command...'}
         </Text>

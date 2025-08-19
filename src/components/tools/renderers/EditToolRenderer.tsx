@@ -2,34 +2,54 @@ import React, { useState } from 'react'
 import { Copy, FileEdit, GitBranch, Eye } from '@tamagui/lucide-icons'
 import { Button, Text, XStack, YStack, ScrollView } from 'tamagui'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
-import type { ToolPartRendererProps } from '../../../types/tools'
+import type { ToolPart } from '@opencode-ai/sdk'
 import { detectLanguage } from '../../../utils/languageDetection'
 import { DiffViewer } from '../../code/DiffViewer'
 
-interface EditToolRendererProps extends ToolPartRendererProps {
+interface EditToolRendererProps {
+  part: ToolPart
+  onCopy?: (content: string) => void
   isExpanded: boolean
 }
 
-export function EditToolRenderer({
-  tool,
-  status,
-  isExpanded,
-}: EditToolRendererProps) {
+export function EditToolRenderer({ part, isExpanded }: EditToolRendererProps) {
   const { copyToClipboard } = useCopyToClipboard()
-  const input = tool.state.input || {}
-  const currentStatus = status || tool.state.status
-  const filePath = input?.filePath || 'Unknown file'
+
+  // Get file path from input when available
+  const getFilePath = (): string => {
+    switch (part.state.status) {
+      case 'completed':
+      case 'running':
+      case 'error':
+        return (
+          (part.state.input as { filePath?: string })?.filePath ||
+          'Unknown file'
+        )
+      default:
+        return 'Unknown file'
+    }
+  }
+
+  const filePath = getFilePath()
   const [viewMode, setViewMode] = useState<
     'unified' | 'split' | 'before' | 'after'
   >('unified')
 
   const handleCopyPath = () => {
-    if (input.filePath) {
-      copyToClipboard(input.filePath)
-    }
+    copyToClipboard(filePath)
   }
 
   const handleCopyDiff = () => {
+    if (
+      part.state.status !== 'completed' &&
+      part.state.status !== 'running' &&
+      part.state.status !== 'error'
+    ) {
+      return
+    }
+
+    const input = part.state.input as { oldString?: string; newString?: string }
+
     if (viewMode === 'before' && input.oldString) {
       copyToClipboard(input.oldString)
     } else if (viewMode === 'after' && input.newString) {
@@ -66,7 +86,7 @@ export function EditToolRenderer({
     )
   }
 
-  const language = detectLanguage(input.filePath)
+  const language = detectLanguage(filePath)
 
   return (
     <YStack gap="$3">
@@ -103,61 +123,76 @@ export function EditToolRenderer({
         </Text>
       </YStack>
 
-      {currentStatus === 'pending' && (
+      {part.state.status === 'pending' && (
         <Text fontSize="$3" color="$color11">
           Preparing to edit file...
         </Text>
       )}
 
-      {currentStatus === 'running' && (
+      {part.state.status === 'running' && (
         <Text fontSize="$3" color="$color11">
           Editing file...
         </Text>
       )}
 
-      {currentStatus === 'error' && (
+      {part.state.status === 'error' && (
         <Text fontSize="$3" color="$red11">
-          Failed to edit: {tool.state.error || 'Unknown error'}
+          Failed to edit: {part.state.error || 'Unknown error'}
         </Text>
       )}
 
-      {currentStatus === 'completed' && input.oldString && input.newString && (
-        <YStack gap="$2">
-          <XStack alignItems="center" justifyContent="space-between">
-            <Text fontSize="$2" color="$color11">
-              File Changes:
-            </Text>
-            <XStack alignItems="center" gap="$2">
-              <Button
-                size="$2"
-                chromeless
-                icon={viewMode === 'unified' ? GitBranch : Eye}
-                onPress={handleModeToggle}
-                pressStyle={{ backgroundColor: '$backgroundPress' }}
-              />
-              <Button
-                size="$2"
-                chromeless
-                icon={Copy}
-                onPress={handleCopyDiff}
-                pressStyle={{ backgroundColor: '$backgroundPress' }}
-              />
+      {part.state.status === 'completed' &&
+        (() => {
+          const input = part.state.input as {
+            oldString?: string
+            newString?: string
+          }
+          return input.oldString && input.newString
+        })() && (
+          <YStack gap="$2">
+            <XStack alignItems="center" justifyContent="space-between">
+              <Text fontSize="$2" color="$color11">
+                File Changes:
+              </Text>
+              <XStack alignItems="center" gap="$2">
+                <Button
+                  size="$2"
+                  chromeless
+                  icon={viewMode === 'unified' ? GitBranch : Eye}
+                  onPress={handleModeToggle}
+                  pressStyle={{ backgroundColor: '$backgroundPress' }}
+                />
+                <Button
+                  size="$2"
+                  chromeless
+                  icon={Copy}
+                  onPress={handleCopyDiff}
+                  pressStyle={{ backgroundColor: '$backgroundPress' }}
+                />
+              </XStack>
             </XStack>
-          </XStack>
-          <DiffViewer
-            oldString={input.oldString}
-            newString={input.newString}
-            filename={input.filePath}
-            language={language}
-            copyable={false}
-            collapsible={false}
-            modeToggleable={false}
-            viewMode={viewMode}
-          />
-        </YStack>
-      )}
+            <DiffViewer
+              oldString={
+                part.state.status === 'completed'
+                  ? (part.state.input as { oldString?: string }).oldString || ''
+                  : ''
+              }
+              newString={
+                part.state.status === 'completed'
+                  ? (part.state.input as { newString?: string }).newString || ''
+                  : ''
+              }
+              filename={filePath}
+              language={language}
+              copyable={false}
+              collapsible={false}
+              modeToggleable={false}
+              viewMode={viewMode}
+            />
+          </YStack>
+        )}
 
-      {currentStatus === 'completed' && tool.state.output && (
+      {part.state.status === 'completed' && part.state.output && (
         <YStack gap="$2">
           <Text fontSize="$2" color="$color11">
             Result:
@@ -169,7 +204,7 @@ export function EditToolRenderer({
             borderRadius="$2"
           >
             <Text fontSize="$2" fontFamily="$mono" color="$green11">
-              {tool.state.output}
+              {part.state.output}
             </Text>
           </ScrollView>
         </YStack>

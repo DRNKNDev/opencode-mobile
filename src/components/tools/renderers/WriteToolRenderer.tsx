@@ -2,25 +2,42 @@ import React from 'react'
 import { Copy, FileEdit } from '@tamagui/lucide-icons'
 import { Button, Text, XStack, YStack } from 'tamagui'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
-import type { ToolPartRendererProps } from '../../../types/tools'
+import type { ToolPart } from '@opencode-ai/sdk'
 import { detectLanguage } from '../../../utils/languageDetection'
 import { CodeBlock } from '../../code/CodeBlock'
 
-export function WriteToolRenderer({ tool, status }: ToolPartRendererProps) {
-  const { copyToClipboard } = useCopyToClipboard()
-  const { input, output } = tool.state
-  const currentStatus = status || tool.state.status
-  const filePath = input?.filePath || 'Unknown file'
+interface WriteToolRendererProps {
+  part: ToolPart
+  onCopy?: (content: string) => void
+}
 
-  const handleCopyPath = () => {
-    if (filePath) {
-      copyToClipboard(filePath)
+export function WriteToolRenderer({ part }: WriteToolRendererProps) {
+  const { copyToClipboard } = useCopyToClipboard()
+
+  // Get file path from input when available
+  const getFilePath = (): string => {
+    switch (part.state.status) {
+      case 'completed':
+      case 'running':
+      case 'error':
+        return (
+          (part.state.input as { filePath?: string })?.filePath ||
+          'Unknown file'
+        )
+      default:
+        return 'Unknown file'
     }
   }
 
+  const filePath = getFilePath()
+
+  const handleCopyPath = () => {
+    copyToClipboard(filePath)
+  }
+
   const handleCopyContent = () => {
-    if (output) {
-      copyToClipboard(output)
+    if (part.state.status === 'completed') {
+      copyToClipboard(part.state.output)
     }
   }
 
@@ -59,19 +76,19 @@ export function WriteToolRenderer({ tool, status }: ToolPartRendererProps) {
         </Text>
       </YStack>
 
-      {currentStatus === 'pending' && (
+      {part.state.status === 'pending' && (
         <Text fontSize="$3" color="$color11">
           Preparing to write file...
         </Text>
       )}
 
-      {currentStatus === 'running' && (
+      {part.state.status === 'running' && (
         <Text fontSize="$3" color="$color11">
           Writing file...
         </Text>
       )}
 
-      {currentStatus === 'completed' && output && (
+      {part.state.status === 'completed' && part.state.output && (
         <YStack gap="$2">
           <XStack alignItems="center" justifyContent="space-between">
             <Text fontSize="$2" color="$color11">
@@ -86,7 +103,7 @@ export function WriteToolRenderer({ tool, status }: ToolPartRendererProps) {
             />
           </XStack>
           <CodeBlock
-            code={output}
+            code={part.state.output}
             language={detectLanguage(filePath)}
             filename={filePath}
             copyable={false}
@@ -94,9 +111,9 @@ export function WriteToolRenderer({ tool, status }: ToolPartRendererProps) {
         </YStack>
       )}
 
-      {currentStatus === 'error' && (
+      {part.state.status === 'error' && (
         <Text fontSize="$3" color="$red11">
-          Failed to write: {tool.state.error || 'Unknown error'}
+          Failed to write: {part.state.error || 'Unknown error'}
         </Text>
       )}
     </YStack>
