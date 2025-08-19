@@ -1,8 +1,14 @@
 import { observable } from '@legendapp/state'
 import { ObservablePersistMMKV } from '@legendapp/state/persist-plugins/mmkv'
 import { syncObservable } from '@legendapp/state/sync'
-import type { Message, Model, Session } from '../services/types'
-import type { Mode } from '../components/modals/ModeSelector'
+import type {
+  Agent,
+  Model,
+  Provider,
+  Session,
+  SessionMessageResponse,
+  ToolState,
+} from '@opencode-ai/sdk'
 
 export type ConnectionState =
   | 'disconnected'
@@ -33,7 +39,7 @@ export interface StoreState {
   }
 
   messages: {
-    bySessionId: Record<string, Message[]>
+    bySessionId: Record<string, SessionMessageResponse[]>
     isLoading: boolean
     isSending: boolean
     error: string | null
@@ -41,16 +47,22 @@ export interface StoreState {
 
   models: {
     available: Model[]
+    providers: Provider[]
     defaults: Record<string, string>
-    selected: string | null
+    selected: { modelID: string; providerID: string } | null
     isLoading: boolean
   }
 
-  modes: {
-    available: Mode[]
+  agents: {
+    available: Agent[]
     selected: string | null
     isLoading: boolean
     error: string | null
+  }
+
+  tools: {
+    states: Record<string, ToolState>
+    activeTools: string[]
   }
 }
 
@@ -85,16 +97,22 @@ export const store$ = observable<StoreState>({
 
   models: {
     available: [],
-    defaults: {},
+    providers: [],
+    defaults: {}, // { providerId: modelId } from API
     selected: null,
     isLoading: false,
   },
 
-  modes: {
+  agents: {
     available: [],
     selected: null,
     isLoading: false,
     error: null,
+  },
+
+  tools: {
+    states: {},
+    activeTools: [],
   },
 })
 
@@ -127,9 +145,9 @@ syncObservable(store$.connection.serverUrl, {
   },
 })
 
-syncObservable(store$.modes.selected, {
+syncObservable(store$.agents.selected, {
   persist: {
-    name: 'selected-mode',
+    name: 'selected-agent',
     plugin: ObservablePersistMMKV,
   },
 })

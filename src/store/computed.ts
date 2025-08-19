@@ -1,12 +1,12 @@
 import { computed } from '@legendapp/state'
 import { store$ } from './index'
 import type {
-  Message,
   Session,
   Model,
-  ConnectionStatus,
-} from '../services/types'
-import type { Mode } from '../components/modals/ModeSelector'
+  Agent,
+  SessionMessageResponse,
+} from '@opencode-ai/sdk'
+import type { ConnectionStatus } from '../services/types'
 
 // Connection computed values
 export const isConnected = computed(
@@ -28,7 +28,7 @@ export const isReady = computed(
 )
 
 // Current session messages
-export const currentMessages = computed((): Message[] => {
+export const currentMessages = computed((): SessionMessageResponse[] => {
   const sessionId = store$.sessions.current.get()
   return sessionId ? store$.messages.bySessionId[sessionId].get() || [] : []
 })
@@ -42,41 +42,65 @@ export const currentSession = computed((): Session | null => {
 
 // Selected model info
 export const selectedModel = computed((): Model | null => {
-  const modelId = store$.models.selected.get()
-  const models = store$.models.available.get()
-  return models.find(m => m.id === modelId) || null
+  const selection = store$.models.selected.get()
+  if (!selection) return null
+
+  const providers = store$.models.providers.get()
+  for (const provider of providers) {
+    if (provider.id === selection.providerID && provider.models) {
+      const model = provider.models[selection.modelID]
+      return model || null
+    }
+  }
+  return null
 })
 
-// Selected mode info
-export const selectedMode = computed((): Mode | null => {
-  const modeName = store$.modes.selected.get()
-  const modes = store$.modes.available.get()
-  return modes.find(m => m.name === modeName) || null
+// Selected agent info
+export const selectedAgent = computed((): Agent | null => {
+  const agentName = store$.agents.selected.get()
+  const agents = store$.agents.available.get()
+  return agents.find(a => a.name === agentName) || null
 })
 
-// Available modes
-export const availableModes = computed((): Mode[] => {
-  return store$.modes.available.get()
+// Available agents
+export const availableAgents = computed((): Agent[] => {
+  return store$.agents.available.get()
 })
 
-// Default model for a provider
+// Default model for a provider - uses API defaults first, then fallback to first model
 export const getDefaultModelForProvider = (
   providerId: string
 ): string | null => {
-  const defaultModels = store$.models.defaults.get()
-  return defaultModels[providerId] || null
+  // First check if we have an API-provided default for this provider
+  const defaults = store$.models.defaults.get()
+  if (defaults[providerId]) {
+    // Verify the default model still exists in the provider
+    const providers = store$.models.providers.get()
+    const provider = providers.find(p => p.id === providerId)
+    if (provider?.models && provider.models[defaults[providerId]]) {
+      return defaults[providerId]
+    }
+  }
+
+  // Fallback to first available model if no valid default
+  const providers = store$.models.providers.get()
+  const provider = providers.find(p => p.id === providerId)
+  if (provider?.models) {
+    const modelIds = Object.keys(provider.models)
+    return modelIds.length > 0 ? modelIds[0] : null
+  }
+  return null
 }
 
 // Available models grouped by provider
 export const modelsByProvider = computed(() => {
-  const models = store$.models.available.get()
+  const providers = store$.models.providers.get()
   const grouped: Record<string, Model[]> = {}
 
-  models.forEach(model => {
-    if (!grouped[model.provider]) {
-      grouped[model.provider] = []
+  providers.forEach(provider => {
+    if (provider.models) {
+      grouped[provider.id] = Object.values(provider.models)
     }
-    grouped[model.provider].push(model)
   })
 
   return grouped
@@ -119,7 +143,7 @@ export const currentSessionHasMessages = computed((): boolean => {
 })
 
 // Last message in current session
-export const lastMessage = computed((): Message | null => {
+export const lastMessage = computed((): SessionMessageResponse | null => {
   const messages = currentMessages.get()
   return messages.length > 0 ? messages[messages.length - 1] : null
 })
@@ -135,9 +159,8 @@ export const sessionsSortedByTime = computed((): Session[] => {
 
 // Available providers
 export const availableProviders = computed((): string[] => {
-  const models = store$.models.available.get()
-  const providers = new Set(models.map(m => m.provider))
-  return Array.from(providers)
+  const providers = store$.models.providers.get()
+  return providers.map(p => p.id)
 })
 
 // Connection status for UI
@@ -146,7 +169,6 @@ export const connectionStatus = computed(
     connected: isConnected.get(),
     serverUrl: store$.connection.serverUrl.get(),
     error: store$.connection.error.get() || undefined,
-    models: store$.models.available.get(),
   })
 )
 
@@ -160,8 +182,8 @@ export const computed$ = {
   currentMessages,
   currentSession,
   selectedModel,
-  selectedMode,
-  availableModes,
+  selectedAgent,
+  availableAgents,
   modelsByProvider,
   isDarkTheme,
   isLightTheme,

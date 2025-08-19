@@ -4,9 +4,43 @@ import {
   type OpenCodeConfig,
   type SendMessageRequest,
 } from '../services/opencode'
-import type { Message } from '../services/types'
+import type { Message, Agent } from '@opencode-ai/sdk'
 import { store$ } from './index'
 import { setActionError } from './utils'
+
+// Helper function for fallback agents
+const getFallbackAgents = (): Agent[] => {
+  return [
+    {
+      name: 'build',
+      description: 'Write, edit, and execute code with full tool access',
+      mode: 'primary' as const,
+      builtIn: true,
+      tools: {},
+      permission: {
+        edit: 'allow' as const,
+        bash: {},
+      },
+      options: {},
+    },
+    {
+      name: 'plan',
+      description: 'Read and analyze code without making changes',
+      mode: 'primary' as const,
+      builtIn: true,
+      tools: {
+        write: false,
+        edit: false,
+        bash: false,
+      },
+      permission: {
+        edit: 'deny' as const,
+        bash: {},
+      },
+      options: {},
+    },
+  ]
+}
 
 export const actions = {
   // Connection actions
@@ -45,45 +79,69 @@ export const actions = {
           throw new Error(healthCheck.error || 'Health check failed')
         }
 
-        // Fetch models and modes
-        const modelsResponse = await openCodeService.getModels()
+        // Fetch providers and agents
+        const providersResponse = await openCodeService.getProviders()
+        const { providers, default: defaults } = providersResponse
 
-        // Try to fetch modes, use fallback if it fails
-        let modes
+        // Try to fetch agents, use fallback if it fails
+        let agents
         try {
-          modes = await openCodeService.getModes()
-        } catch (modeError) {
+          agents = await openCodeService.getAgents()
+        } catch (agentError) {
           console.warn(
-            'Failed to fetch modes from API, using fallback:',
-            modeError
+            'Failed to fetch agents from API, using fallback:',
+            agentError
           )
-          modes = actions.modes.getFallbackModes()
+          agents = getFallbackAgents()
         }
 
         // Update store with successful connection
         store$.connection.status.set('connected')
         store$.connection.lastConnected.set(new Date())
         store$.connection.retryCount.set(0)
-        store$.models.available.set(modelsResponse.models)
-        store$.models.defaults.set(modelsResponse.defaultModels)
-        store$.modes.available.set(modes)
+        store$.models.providers.set(providers)
+        store$.models.defaults.set(defaults || {})
+        store$.agents.available.set(agents)
 
         // Auto-select a default model if none is currently selected
         const currentSelectedModel = store$.models.selected.get()
-        if (!currentSelectedModel && modelsResponse.models.length > 0) {
-          const defaultModelId = Object.values(modelsResponse.defaultModels)[0]
-          const modelToSelect = defaultModelId || modelsResponse.models[0].id
-          store$.models.selected.set(modelToSelect)
+        if (!currentSelectedModel && providers.length > 0) {
+          // Try to use API-provided defaults first
+          if (defaults && Object.keys(defaults).length > 0) {
+            // Find first provider that has a default and exists
+            for (const [providerId, modelId] of Object.entries(defaults)) {
+              const provider = providers.find(p => p.id === providerId)
+              if (provider?.models && provider.models[modelId]) {
+                store$.models.selected.set({
+                  modelID: modelId,
+                  providerID: providerId,
+                })
+                break
+              }
+            }
+          } else {
+            // Fallback to first model of first provider if no defaults
+            for (const provider of providers) {
+              if (provider.models && Object.keys(provider.models).length > 0) {
+                const firstModelId = Object.keys(provider.models)[0]
+                store$.models.selected.set({
+                  modelID: firstModelId,
+                  providerID: provider.id,
+                })
+                break
+              }
+            }
+          }
         }
 
-        // Auto-select a default mode if none is currently selected
-        const currentSelectedMode = store$.modes.selected.get()
-        if (!currentSelectedMode && modes.length > 0) {
-          // Prefer 'build' mode if available, otherwise select first available mode
-          const buildMode = modes.find(m => m.name === 'build')
-          const defaultMode = buildMode || modes[0]
-          if (defaultMode) {
-            store$.modes.selected.set(defaultMode.name)
+        // Auto-select a default agent if none is currently selected
+        const currentSelectedAgent = store$.agents.selected.get()
+        if (!currentSelectedAgent && agents.length > 0) {
+          // Prefer 'build' agent if available, otherwise select first available agent
+          const buildAgent = agents.find(a => a.name === 'build')
+          const defaultAgent = buildAgent || agents[0]
+          if (defaultAgent) {
+            store$.agents.selected.set(defaultAgent.name)
           }
         }
 
@@ -123,13 +181,13 @@ export const actions = {
         store$.connection.lastConnected.set(null)
         store$.connection.retryCount.set(0)
         store$.models.available.set([])
-        store$.models.defaults.set({})
+        store$.models.available.set([])
       } finally {
         store$.connection.isLoading.set(false)
       }
     },
 
-    refreshModels: async () => {
+    refreshProviders: async () => {
       // Check if we're connected
       if (
         store$.connection.status.get() !== 'connected' ||
@@ -141,23 +199,46 @@ export const actions = {
       store$.models.isLoading.set(true)
 
       try {
-        const modelsResponse = await openCodeService.getModels()
+        const providersResponse = await openCodeService.getProviders()
+        const { providers, default: defaults } = providersResponse
 
-        store$.models.available.set(modelsResponse.models)
-        store$.models.defaults.set(modelsResponse.defaultModels)
+        store$.models.providers.set(providers)
+        store$.models.defaults.set(defaults || {})
 
         // Auto-select a default model if none is currently selected
         const currentSelected = store$.models.selected.get()
-        if (!currentSelected && modelsResponse.models.length > 0) {
-          // Try to find a default model first
-          const defaultModelId = Object.values(modelsResponse.defaultModels)[0]
-          const modelToSelect = defaultModelId || modelsResponse.models[0].id
-          store$.models.selected.set(modelToSelect)
+        if (!currentSelected && providers.length > 0) {
+          // Try to use API-provided defaults first
+          if (defaults && Object.keys(defaults).length > 0) {
+            // Find first provider that has a default and exists
+            for (const [providerId, modelId] of Object.entries(defaults)) {
+              const provider = providers.find(p => p.id === providerId)
+              if (provider?.models && provider.models[modelId]) {
+                store$.models.selected.set({
+                  modelID: modelId,
+                  providerID: providerId,
+                })
+                break
+              }
+            }
+          } else {
+            // Fallback to first model of first provider if no defaults
+            for (const provider of providers) {
+              if (provider.models && Object.keys(provider.models).length > 0) {
+                const firstModelId = Object.keys(provider.models)[0]
+                store$.models.selected.set({
+                  modelID: firstModelId,
+                  providerID: provider.id,
+                })
+                break
+              }
+            }
+          }
         }
       } catch (error) {
         setActionError(
           error,
-          'Failed to refresh models',
+          'Failed to refresh providers',
           store$.connection.error.set
         )
         throw error
@@ -193,10 +274,10 @@ export const actions = {
               )
             })
 
-            // Refresh models to ensure we have the latest model data
-            actions.connection.refreshModels().catch(error => {
+            // Refresh providers to ensure we have the latest provider data
+            actions.connection.refreshProviders().catch(error => {
               console.warn(
-                'Failed to refresh models during initialization:',
+                'Failed to refresh providers during initialization:',
                 error
               )
             })
@@ -384,7 +465,7 @@ export const actions = {
       content: string,
       modelId: string,
       providerId: string,
-      mode = 'chat'
+      agent?: string
     ) => {
       if (
         store$.connection.status.get() !== 'connected' ||
@@ -402,7 +483,7 @@ export const actions = {
           content,
           modelId,
           providerId,
-          mode,
+          agent,
         }
 
         // Send message to server
@@ -419,34 +500,33 @@ export const actions = {
       }
     },
 
-    addMessage: (message: Message) => {
-      const sessionId = message.sessionId
+    addMessage: (sessionId: string, messageResponse: any) => {
       const currentMessages = store$.messages.bySessionId[sessionId].get() || []
 
       // Check if message already exists
-      const exists = currentMessages.some(m => m.id === message.id)
+      const exists = currentMessages.some(
+        m => m.info.id === messageResponse.info.id
+      )
       if (exists) {
         // Update existing message
         store$.messages.bySessionId[sessionId].set(messages =>
-          messages.map(m => (m.id === message.id ? message : m))
+          messages.map(m =>
+            m.info.id === messageResponse.info.id ? messageResponse : m
+          )
         )
       } else {
         // Add new message
         store$.messages.bySessionId[sessionId].set([
           ...currentMessages,
-          message,
+          messageResponse,
         ])
       }
     },
 
-    updateMessage: (
-      sessionId: string,
-      messageId: string,
-      updates: Partial<Message>
-    ) => {
+    updateMessage: (sessionId: string, messageId: string, updates: any) => {
       store$.messages.bySessionId[sessionId].set(messages =>
         messages.map(msg =>
-          msg.id === messageId ? { ...msg, ...updates } : msg
+          msg.info.id === messageId ? { ...msg, ...updates } : msg
         )
       )
     },
@@ -458,14 +538,14 @@ export const actions = {
 
   // Model actions
   models: {
-    selectModel: (modelId: string) => {
-      store$.models.selected.set(modelId)
+    selectModel: (modelId: string, providerId: string) => {
+      store$.models.selected.set({ modelID: modelId, providerID: providerId })
     },
   },
 
-  // Mode actions
-  modes: {
-    loadModes: async () => {
+  // Agent actions
+  agents: {
+    loadAgents: async () => {
       if (
         store$.connection.status.get() !== 'connected' ||
         !openCodeService.isInitialized()
@@ -473,70 +553,50 @@ export const actions = {
         throw new Error('Not connected to server')
       }
 
-      store$.modes.isLoading.set(true)
-      store$.modes.error.set(null)
+      store$.agents.isLoading.set(true)
+      store$.agents.error.set(null)
 
       try {
-        const modes = await openCodeService.getModes()
-        store$.modes.available.set(modes)
+        const agents = await openCodeService.getAgents()
+        store$.agents.available.set(agents)
 
-        // Auto-select a default mode if none is currently selected
-        const currentSelected = store$.modes.selected.get()
-        if (!currentSelected && modes.length > 0) {
-          // Prefer 'build' mode if available, otherwise select first available mode
-          const buildMode = modes.find(m => m.name === 'build')
-          const defaultMode = buildMode || modes[0]
-          if (defaultMode) {
-            store$.modes.selected.set(defaultMode.name)
+        // Auto-select a default agent if none is currently selected
+        const currentSelected = store$.agents.selected.get()
+        if (!currentSelected && agents.length > 0) {
+          // Prefer 'build' agent if available, otherwise select first available agent
+          const buildAgent = agents.find(a => a.name === 'build')
+          const defaultAgent = buildAgent || agents[0]
+          if (defaultAgent) {
+            store$.agents.selected.set(defaultAgent.name)
           }
         }
       } catch (error) {
-        // Set fallback modes when API fails
-        const fallbackModes = actions.modes.getFallbackModes()
-        store$.modes.available.set(fallbackModes)
+        // Set fallback agents when API fails
+        const fallbackAgents = getFallbackAgents()
+        store$.agents.available.set(fallbackAgents)
 
-        // Auto-select build mode as default
-        const currentSelected = store$.modes.selected.get()
+        // Auto-select build agent as default
+        const currentSelected = store$.agents.selected.get()
         if (!currentSelected) {
-          store$.modes.selected.set('build')
+          store$.agents.selected.set('build')
         }
 
         setActionError(
           error,
-          'Failed to load modes from server, using fallback modes',
-          store$.modes.error.set
+          'Failed to load agents from server, using fallback agents',
+          store$.agents.error.set
         )
       } finally {
-        store$.modes.isLoading.set(false)
+        store$.agents.isLoading.set(false)
       }
     },
 
-    getFallbackModes: () => {
-      return [
-        {
-          name: 'build',
-          tools: {} as Record<string, boolean>,
-          model: { modelID: '', providerID: '' },
-        },
-        {
-          name: 'plan',
-          tools: {
-            write: false,
-            edit: false,
-            patch: false,
-            bash: false,
-          } as Record<string, boolean>,
-          model: { modelID: '', providerID: '' },
-        },
-      ]
+    selectAgent: (agentName: string) => {
+      store$.agents.selected.set(agentName)
     },
 
-    selectMode: (modeId: string) => {
-      store$.modes.selected.set(modeId)
-    },
-
-    refreshModes: async () => {
-      await actions.modes.loadModes()
+    refreshAgents: async () => {
+      await actions.agents.loadAgents()
     },
   },
 

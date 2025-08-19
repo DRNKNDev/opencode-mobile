@@ -1,5 +1,6 @@
 import { LegendList } from '@legendapp/list'
 import { useSelector } from '@legendapp/state/react'
+import type { Session } from '@opencode-ai/sdk'
 import { MessageCircle } from '@tamagui/lucide-icons'
 import { useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
@@ -9,13 +10,11 @@ import { Text, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { SessionCard } from '../components/session/SessionCard'
 import { Header } from '../components/ui/Header'
-import type { Session } from '../services/types'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
 import {
-  getDefaultModelForProvider,
   isConnected,
-  selectedMode,
+  selectedAgent,
   selectedModel,
   sessionsSortedByTime,
 } from '../store/computed'
@@ -29,7 +28,7 @@ export default function SessionListScreen() {
   // LegendState integration
   const connected = useSelector(isConnected)
   const model = useSelector(selectedModel)
-  const currentMode = useSelector(selectedMode)
+  const currentAgent = useSelector(selectedAgent)
   const sessions = useSelector(sessionsSortedByTime)
   const sessionState = useSelector(() => ({
     isLoading: store$.sessions.isLoading.get(),
@@ -63,10 +62,8 @@ export default function SessionListScreen() {
 
       // Send the initial message in the background (don't await)
       if (model) {
-        const providerId =
-          model.providerId ||
-          getDefaultModelForProvider(model.provider) ||
-          'anthropic'
+        const currentSelection = store$.models.selected.get()
+        const providerId = currentSelection?.providerID || 'anthropic'
 
         // Fire and forget - let it happen in background
         actions.messages
@@ -75,7 +72,7 @@ export default function SessionListScreen() {
             messageContent,
             model.id,
             providerId,
-            currentMode?.name || 'build'
+            currentAgent?.name || 'build'
           )
           .catch(error => {
             console.error('Failed to send initial message:', error)
@@ -108,7 +105,27 @@ export default function SessionListScreen() {
   }
 
   const handleModelSelect = (modelId: string) => {
-    actions.models.selectModel(modelId)
+    // Find which provider owns this model
+    const providers = store$.models.providers.get()
+    let foundProviderId: string | null = null
+
+    for (const provider of providers) {
+      if (provider.models && provider.models[modelId]) {
+        foundProviderId = provider.id
+        break
+      }
+    }
+
+    // If we found the provider, use it; otherwise fall back to current or default
+    if (foundProviderId) {
+      actions.models.selectModel(modelId, foundProviderId)
+    } else {
+      // This shouldn't happen if the model selector is working correctly
+      console.warn(`Could not find provider for model ${modelId}`)
+      const currentSelection = store$.models.selected.get()
+      const providerId = currentSelection?.providerID || 'anthropic'
+      actions.models.selectModel(modelId, providerId)
+    }
   }
 
   const handleRefresh = async () => {
@@ -147,7 +164,7 @@ export default function SessionListScreen() {
           color="$color11"
           textAlign="center"
         >
-          Start your first session in {currentMode?.name || 'build'} mode with{' '}
+          Start your first session in {currentAgent?.name || 'build'} mode with{' '}
           {model?.name || 'AI'}
         </Text>
       </YStack>
@@ -181,7 +198,7 @@ export default function SessionListScreen() {
           onStop={() => {}}
           onModelSelect={handleModelSelect}
           placeholder="What can I help you with?"
-          currentModel={model?.id || 'build'}
+          currentModel={model?.id}
           disabled={!connected || isCreating}
           isStreaming={isCreating}
           size="$4"
