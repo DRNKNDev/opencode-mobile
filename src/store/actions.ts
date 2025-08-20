@@ -92,6 +92,31 @@ const ensureModelSelected = (
   }
 }
 
+// Helper to avoid duplicating agent selection logic
+const ensureAgentSelected = async (): Promise<Agent[]> => {
+  let agents: Agent[]
+
+  try {
+    agents = await openCodeService.getAgents()
+  } catch (agentError) {
+    debug.warn('Failed to fetch agents from API, using fallback:', agentError)
+    agents = getFallbackAgents()
+  }
+
+  store$.agents.available.set(agents)
+
+  // Auto-select a default agent if none is currently selected
+  const currentSelected = store$.agents.selected.get()
+  if (!currentSelected) {
+    const selected = selectDefaultAgent(agents)
+    if (selected) {
+      store$.agents.selected.set(selected)
+    }
+  }
+
+  return agents
+}
+
 export const actions = {
   // Connection actions
   connection: {
@@ -133,17 +158,8 @@ export const actions = {
         const providersResponse = await openCodeService.getProviders()
         const { providers, default: defaults } = providersResponse
 
-        // Try to fetch agents, use fallback if it fails
-        let agents
-        try {
-          agents = await openCodeService.getAgents()
-        } catch (agentError) {
-          debug.warn(
-            'Failed to fetch agents from API, using fallback:',
-            agentError
-          )
-          agents = getFallbackAgents()
-        }
+        // Fetch and setup agents
+        await ensureAgentSelected()
 
         // Update store with successful connection
         store$.connection.status.set('connected')
@@ -151,19 +167,9 @@ export const actions = {
         store$.connection.retryCount.set(0)
         store$.models.providers.set(providers)
         store$.models.defaults.set(defaults || {})
-        store$.agents.available.set(agents)
 
         // Auto-select a default model if none is currently selected
         ensureModelSelected(providers, defaults || {})
-
-        // Auto-select a default agent if none is currently selected
-        const currentSelectedAgent = store$.agents.selected.get()
-        if (!currentSelectedAgent) {
-          const selected = selectDefaultAgent(agents)
-          if (selected) {
-            store$.agents.selected.set(selected)
-          }
-        }
 
         // Start health monitoring
         actions.connection.startHealthMonitoring()
@@ -581,31 +587,8 @@ export const actions = {
       store$.agents.error.set(null)
 
       try {
-        const agents = await openCodeService.getAgents()
-        store$.agents.available.set(agents)
-
-        // Auto-select a default agent if none is currently selected
-        const currentSelected = store$.agents.selected.get()
-        if (!currentSelected) {
-          const selected = selectDefaultAgent(agents)
-          if (selected) {
-            store$.agents.selected.set(selected)
-          }
-        }
+        await ensureAgentSelected()
       } catch (error) {
-        // Set fallback agents when API fails
-        const fallbackAgents = getFallbackAgents()
-        store$.agents.available.set(fallbackAgents)
-
-        // Auto-select build agent as default
-        const currentSelected = store$.agents.selected.get()
-        if (!currentSelected) {
-          const selected = selectDefaultAgent(fallbackAgents)
-          if (selected) {
-            store$.agents.selected.set(selected)
-          }
-        }
-
         setActionError(
           error,
           'Failed to load agents from server, using fallback agents',
