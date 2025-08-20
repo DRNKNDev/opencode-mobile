@@ -7,7 +7,17 @@ import {
 } from '../services/opencode'
 import { debug } from '../utils/debug'
 import { store$ } from './index'
-import { setActionError } from './utils'
+
+// Simple helper for error handling
+const setActionError = (
+  error: unknown,
+  fallback: string,
+  setter: (msg: string) => void
+): string => {
+  const message = error instanceof Error ? error.message : fallback
+  setter(message)
+  return message
+}
 
 // Helper function for fallback agents
 const getFallbackAgents = (): Agent[] => {
