@@ -26,6 +26,7 @@ export interface InputBarProps {
   disabled?: boolean
   placeholder?: string
   isStreaming?: boolean
+  isAborting?: boolean
   currentModel?: string
   size?: '$2' | '$3' | '$4'
   borderWidth?: number
@@ -43,6 +44,7 @@ export function InputBar({
   disabled = false,
   placeholder = 'Type a message...',
   isStreaming = false,
+  isAborting = false,
   currentModel,
   size = '$2',
   borderWidth,
@@ -83,7 +85,7 @@ export function InputBar({
   }
 
   const handleStop = () => {
-    if (isStreaming) {
+    if (isStreaming && !isAborting) {
       onStop()
     }
   }
@@ -155,10 +157,13 @@ export function InputBar({
           icon={isStreaming ? StopCircle : ArrowUpCircle}
           scaleIcon={1.5}
           onPress={isStreaming ? handleStop : handleSubmit}
-          disabled={!isStreaming && !canSend}
+          disabled={(!isStreaming && !canSend) || isAborting}
+          animation={isAborting ? 'bouncy' : undefined}
+          animateOnly={isAborting ? ['opacity'] : undefined}
+          opacity={isAborting ? 0.7 : 1}
           pressStyle={{
             scale: 0.95,
-            backgroundColor: isStreaming ? '$red11' : '$blue11',
+            backgroundColor: isStreaming && !isAborting ? '$red11' : '$blue11',
           }}
         />
       </XStack>
