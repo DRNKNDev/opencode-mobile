@@ -84,12 +84,20 @@ class SyncService {
             : 'Session error occurred'
           console.error('Session error:', errorMsg)
           store$.messages.error.set(errorMsg)
+
+          // If this is an abort-related error or session is idle due to abort, clean up state
+          batch(() => {
+            store$.messages.isSending.set(false)
+            store$.messages.isAborting.set(false)
+          })
         }
         break
 
       case 'session.idle':
-        // Mark all streaming messages as complete using batching
+        // Session is now idle - this happens after completion OR abort
         const currentSessionId = store$.sessions.current.get()
+        const wasAborting = store$.messages.isAborting.get()
+
         batch(() => {
           if (currentSessionId) {
             const messages =
@@ -101,9 +109,17 @@ class SyncService {
             store$.messages.bySessionId[currentSessionId].set(updatedMessages)
           }
 
-          // Streaming is complete
+          // Clear all streaming and aborting states - session is now idle
           store$.messages.isSending.set(false)
+          store$.messages.isAborting.set(false)
         })
+
+        // Log the reason for going idle
+        if (wasAborting) {
+          console.log('Session went idle after abort')
+        } else {
+          console.log('Session went idle after completion')
+        }
         break
 
       case 'message.removed':
