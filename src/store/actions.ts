@@ -74,9 +74,22 @@ const selectDefaultModel = (
 // Simple helper to select default agent
 const selectDefaultAgent = (agents: Agent[]) => {
   if (!agents?.length) return null
-  // Prefer 'build' agent, otherwise first
-  const buildAgent = agents.find(a => a.name === 'build')
-  return buildAgent?.name || agents[0].name
+  // Prefer build agent if available
+  return agents.find(a => a.name === 'build')?.name || agents[0]?.name || null
+}
+
+// Helper to avoid duplicating model selection logic
+const ensureModelSelected = (
+  providers: Provider[],
+  defaults: Record<string, string>
+) => {
+  const currentSelected = store$.models.selected.get()
+  if (!currentSelected) {
+    const selected = selectDefaultModel(providers, defaults || {})
+    if (selected) {
+      store$.models.selected.set(selected)
+    }
+  }
 }
 
 export const actions = {
@@ -141,13 +154,7 @@ export const actions = {
         store$.agents.available.set(agents)
 
         // Auto-select a default model if none is currently selected
-        const currentSelectedModel = store$.models.selected.get()
-        if (!currentSelectedModel) {
-          const selected = selectDefaultModel(providers, defaults || {})
-          if (selected) {
-            store$.models.selected.set(selected)
-          }
-        }
+        ensureModelSelected(providers, defaults || {})
 
         // Auto-select a default agent if none is currently selected
         const currentSelectedAgent = store$.agents.selected.get()
@@ -219,13 +226,7 @@ export const actions = {
         store$.models.defaults.set(defaults || {})
 
         // Auto-select a default model if none is currently selected
-        const currentSelected = store$.models.selected.get()
-        if (!currentSelected) {
-          const selected = selectDefaultModel(providers, defaults || {})
-          if (selected) {
-            store$.models.selected.set(selected)
-          }
-        }
+        ensureModelSelected(providers, defaults || {})
       } catch (error) {
         setActionError(
           error,
