@@ -9,11 +9,17 @@ import type {
   TextPartInput,
 } from '@opencode-ai/sdk'
 
+// Import EventSource from react-native-sse for SSE transport layer
+import EventSource from 'react-native-sse'
+
 // Import the client creation functions directly from internals to avoid Node.js dependencies
 // @ts-ignore - These internal paths work at runtime but aren't in the package exports
 import { createClient } from '@opencode-ai/sdk/dist/gen/client/client.js'
 // @ts-ignore
 import { OpencodeClient } from '@opencode-ai/sdk/dist/gen/sdk.gen.js'
+
+// Import debug utility for logging
+import { debug } from '@/src/utils/debug'
 
 // Create our own createOpencodeClient function that avoids the main SDK entry point
 function createOpencodeClient(config: { baseUrl: string }) {
@@ -42,6 +48,7 @@ export interface SendMessageRequest {
 class OpenCodeService {
   private client: ReturnType<typeof createOpencodeClient> | null = null
   private config: OpenCodeConfig | null = null
+  private eventSource: EventSource | null = null
 
   initialize(config: OpenCodeConfig): void {
     this.config = config
@@ -232,55 +239,160 @@ class OpenCodeService {
     }
   }
 
-  // Simple SSE event streaming using SDK
+  // SSE event streaming using react-native-sse
   async *streamEvents(): AsyncGenerator<Event> {
-    if (!this.client) {
-      throw new Error('Client not initialized')
+    if (!this.config) {
+      throw new Error('Service not initialized')
     }
 
+    // SSE stream controller for AsyncGenerator pattern
+    interface StreamController {
+      eventQueue: Event[]
+      resolveNext: ((value: IteratorResult<Event>) => void) | null
+      rejectNext: ((error: any) => void) | null
+      closed: boolean
+    }
+
+    const controller: StreamController = {
+      eventQueue: [],
+      resolveNext: null,
+      rejectNext: null,
+      closed: false,
+    }
+
+    let eventCount = 0
+
     try {
-      const response = await this.client.event.subscribe()
+      // Create EventSource connection
+      const eventURL = `${this.config.baseURL}/event`
+      debug.log('SSE: Connecting to', eventURL)
 
-      if ('error' in response && response.error) {
-        throw new Error('Failed to subscribe to events')
-      }
+      this.eventSource = new EventSource(eventURL)
 
-      // For SSE, we need to handle the response stream
-      // This is a simplified implementation - you might need to adjust based on actual SDK behavior
-      const reader = response.response?.body?.getReader()
-      if (!reader) throw new Error('No response body')
+      // EventSource message handler - simplified JSON parsing
+      this.eventSource.addEventListener('message', (event: any) => {
+        debug.log('SSE: Received message', event.data)
 
-      const decoder = new TextDecoder()
-      let buffer = ''
+        const data = event.data
+        if (data && data !== '[DONE]') {
+          try {
+            const eventObj: Event = JSON.parse(data)
+            eventCount++
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data !== '[DONE]') {
-              try {
-                yield JSON.parse(data) as Event
-              } catch (e) {
-                console.error('Failed to parse event:', e)
-              }
+            // Log first few events for debugging
+            if (eventCount <= 3) {
+              debug.log('SSE: Parsed event', {
+                type: eventObj.type,
+                eventCount,
+              })
             }
+
+            // Add to queue
+            controller.eventQueue.push(eventObj)
+
+            // Resolve pending next() call if any
+            if (controller.resolveNext) {
+              const resolve = controller.resolveNext
+              controller.resolveNext = null
+              resolve({ value: eventObj, done: false })
+            }
+          } catch (e) {
+            debug.error('SSE: Failed to parse event JSON', e)
+            // Continue processing other events
+          }
+        } else if (data === '[DONE]') {
+          debug.log('SSE: Stream completed with DONE marker')
+          controller.closed = true
+
+          if (controller.resolveNext) {
+            const resolve = controller.resolveNext
+            controller.resolveNext = null
+            resolve({ value: undefined, done: true })
           }
         }
+      })
+
+      // EventSource connection opened
+      this.eventSource.addEventListener('open', () => {
+        debug.success('SSE: Connection established')
+      })
+
+      // EventSource error handler
+      this.eventSource.addEventListener('error', (event: any) => {
+        debug.error('SSE: Connection error', event)
+        controller.closed = true
+
+        if (controller.rejectNext) {
+          const reject = controller.rejectNext
+          controller.rejectNext = null
+          reject(new Error('SSE connection error'))
+        }
+      })
+
+      // AsyncGenerator implementation
+      try {
+        while (!controller.closed) {
+          // If we have queued events, yield them immediately
+          if (controller.eventQueue.length > 0) {
+            const event = controller.eventQueue.shift()!
+            yield event
+            continue
+          }
+
+          // Wait for next event
+          const result = await new Promise<IteratorResult<Event>>(
+            (resolve, reject) => {
+              if (controller.closed) {
+                resolve({ value: undefined, done: true })
+                return
+              }
+
+              controller.resolveNext = resolve
+              controller.rejectNext = reject
+            }
+          )
+
+          if (result.done) {
+            break
+          }
+
+          yield result.value
+        }
+      } finally {
+        // Cleanup on generator completion
+        debug.log('SSE: Cleaning up connection')
+        controller.closed = true
+        controller.eventQueue = []
+        controller.resolveNext = null
+        controller.rejectNext = null
+
+        if (this.eventSource) {
+          this.eventSource.close()
+          this.eventSource = null
+        }
       }
+
+      debug.success(`SSE: Stream completed, processed ${eventCount} events`)
     } catch (error) {
-      console.error('Failed to stream events:', error)
+      debug.error('SSE: Stream failed', error)
+
+      // Cleanup on error
+      if (this.eventSource) {
+        this.eventSource.close()
+        this.eventSource = null
+      }
+
       throw error
     }
   }
 
   disconnect(): void {
+    // Close any active EventSource
+    if (this.eventSource) {
+      this.eventSource.close()
+      this.eventSource = null
+    }
+
     this.client = null
     this.config = null
   }
