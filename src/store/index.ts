@@ -42,6 +42,7 @@ export interface StoreState {
     bySessionId: Record<string, SessionMessageResponse[]>
     isLoading: boolean
     isSending: boolean
+    isAborting: boolean
     error: string | null
   }
 
@@ -92,6 +93,7 @@ export const store$ = observable<StoreState>({
     bySessionId: {},
     isLoading: false,
     isSending: false,
+    isAborting: false,
     error: null,
   },
 

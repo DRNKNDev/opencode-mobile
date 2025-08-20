@@ -239,6 +239,28 @@ class OpenCodeService {
     }
   }
 
+  async abortSession(sessionId: string): Promise<void> {
+    if (!this.client) {
+      throw new Error('Client not initialized')
+    }
+
+    try {
+      debug.log('Aborting session:', sessionId)
+      const response = await this.client.session.abort({
+        path: { id: sessionId },
+      })
+
+      if ('error' in response && response.error) {
+        throw new Error('Failed to abort session')
+      }
+
+      debug.success('Session aborted successfully:', sessionId)
+    } catch (error) {
+      debug.error('Failed to abort session:', error)
+      throw error
+    }
+  }
+
   // SSE event streaming using react-native-sse
   async *streamEvents(): AsyncGenerator<Event> {
     if (!this.config) {
