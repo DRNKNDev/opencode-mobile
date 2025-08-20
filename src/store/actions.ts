@@ -1,10 +1,6 @@
 import type { Agent, Provider, SessionMessageResponse } from '@opencode-ai/sdk'
 import { NETWORK_CONFIG } from '../config/constants'
-import {
-  openCodeService,
-  type OpenCodeConfig,
-  type SendMessageRequest,
-} from '../services/opencode'
+import { openCodeService, type OpenCodeConfig } from '../services/opencode'
 import { debug } from '../utils/debug'
 import { store$ } from './index'
 
@@ -486,16 +482,14 @@ export const actions = {
       store$.messages.error.set(null)
 
       try {
-        const request: SendMessageRequest = {
+        // Send message to server
+        await openCodeService.sendMessage(
           sessionId,
           content,
           modelId,
           providerId,
-          agent,
-        }
-
-        // Send message to server
-        await openCodeService.sendMessage(request)
+          agent
+        )
       } catch (error) {
         setActionError(
           error,
