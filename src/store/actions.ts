@@ -1,10 +1,10 @@
+import type { Agent } from '@opencode-ai/sdk'
 import { NETWORK_CONFIG } from '../config/constants'
 import {
   openCodeService,
   type OpenCodeConfig,
   type SendMessageRequest,
 } from '../services/opencode'
-import type { Message, Agent } from '@opencode-ai/sdk'
 import { store$ } from './index'
 import { setActionError } from './utils'
 
@@ -533,6 +533,31 @@ export const actions = {
 
     clearMessages: (sessionId: string) => {
       store$.messages.bySessionId[sessionId].set([])
+    },
+
+    abortSession: async (sessionId: string) => {
+      // Prevent multiple simultaneous abort attempts
+      if (store$.messages.isAborting.get()) {
+        return
+      }
+
+      store$.messages.isAborting.set(true)
+      store$.messages.error.set(null)
+
+      try {
+        await openCodeService.abortSession(sessionId)
+        // Set both isSending and isAborting to false after successful abort
+        store$.messages.isSending.set(false)
+      } catch (error) {
+        setActionError(
+          error,
+          'Failed to abort session',
+          store$.messages.error.set
+        )
+        throw error
+      } finally {
+        store$.messages.isAborting.set(false)
+      }
     },
   },
 
