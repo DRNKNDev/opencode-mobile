@@ -1,10 +1,11 @@
-import type { Agent } from '@opencode-ai/sdk'
+import type { Agent, SessionMessageResponse } from '@opencode-ai/sdk'
 import { NETWORK_CONFIG } from '../config/constants'
 import {
   openCodeService,
   type OpenCodeConfig,
   type SendMessageRequest,
 } from '../services/opencode'
+import { debug } from '../utils/debug'
 import { store$ } from './index'
 import { setActionError } from './utils'
 
@@ -40,6 +41,42 @@ const getFallbackAgents = (): Agent[] => {
       options: {},
     },
   ]
+}
+
+// Simple helper to auto-select a model
+const selectDefaultModel = (
+  providers: any[],
+  defaults: Record<string, string>
+) => {
+  if (!providers?.length) return null
+
+  // Try API defaults first
+  if (defaults && Object.keys(defaults).length > 0) {
+    for (const [providerId, modelId] of Object.entries(defaults)) {
+      const provider = providers.find((p: any) => p.id === providerId)
+      if (provider?.models?.[modelId]) {
+        return { modelID: modelId, providerID: providerId }
+      }
+    }
+  }
+
+  // Fallback to first available model
+  for (const provider of providers) {
+    const modelIds = Object.keys(provider.models || {})
+    if (modelIds.length > 0) {
+      return { modelID: modelIds[0], providerID: provider.id }
+    }
+  }
+
+  return null
+}
+
+// Simple helper to select default agent
+const selectDefaultAgent = (agents: Agent[]) => {
+  if (!agents?.length) return null
+  // Prefer 'build' agent, otherwise first
+  const buildAgent = agents.find(a => a.name === 'build')
+  return buildAgent?.name || agents[0].name
 }
 
 export const actions = {
@@ -88,7 +125,7 @@ export const actions = {
         try {
           agents = await openCodeService.getAgents()
         } catch (agentError) {
-          console.warn(
+          debug.warn(
             'Failed to fetch agents from API, using fallback:',
             agentError
           )
@@ -105,43 +142,19 @@ export const actions = {
 
         // Auto-select a default model if none is currently selected
         const currentSelectedModel = store$.models.selected.get()
-        if (!currentSelectedModel && providers.length > 0) {
-          // Try to use API-provided defaults first
-          if (defaults && Object.keys(defaults).length > 0) {
-            // Find first provider that has a default and exists
-            for (const [providerId, modelId] of Object.entries(defaults)) {
-              const provider = providers.find(p => p.id === providerId)
-              if (provider?.models && provider.models[modelId]) {
-                store$.models.selected.set({
-                  modelID: modelId,
-                  providerID: providerId,
-                })
-                break
-              }
-            }
-          } else {
-            // Fallback to first model of first provider if no defaults
-            for (const provider of providers) {
-              if (provider.models && Object.keys(provider.models).length > 0) {
-                const firstModelId = Object.keys(provider.models)[0]
-                store$.models.selected.set({
-                  modelID: firstModelId,
-                  providerID: provider.id,
-                })
-                break
-              }
-            }
+        if (!currentSelectedModel) {
+          const selected = selectDefaultModel(providers, defaults || {})
+          if (selected) {
+            store$.models.selected.set(selected)
           }
         }
 
         // Auto-select a default agent if none is currently selected
         const currentSelectedAgent = store$.agents.selected.get()
-        if (!currentSelectedAgent && agents.length > 0) {
-          // Prefer 'build' agent if available, otherwise select first available agent
-          const buildAgent = agents.find(a => a.name === 'build')
-          const defaultAgent = buildAgent || agents[0]
-          if (defaultAgent) {
-            store$.agents.selected.set(defaultAgent.name)
+        if (!currentSelectedAgent) {
+          const selected = selectDefaultAgent(agents)
+          if (selected) {
+            store$.agents.selected.set(selected)
           }
         }
 
@@ -180,8 +193,8 @@ export const actions = {
         store$.connection.error.set(null)
         store$.connection.lastConnected.set(null)
         store$.connection.retryCount.set(0)
-        store$.models.available.set([])
-        store$.models.available.set([])
+        store$.models.providers.set([])
+        store$.agents.available.set([])
       } finally {
         store$.connection.isLoading.set(false)
       }
@@ -207,32 +220,10 @@ export const actions = {
 
         // Auto-select a default model if none is currently selected
         const currentSelected = store$.models.selected.get()
-        if (!currentSelected && providers.length > 0) {
-          // Try to use API-provided defaults first
-          if (defaults && Object.keys(defaults).length > 0) {
-            // Find first provider that has a default and exists
-            for (const [providerId, modelId] of Object.entries(defaults)) {
-              const provider = providers.find(p => p.id === providerId)
-              if (provider?.models && provider.models[modelId]) {
-                store$.models.selected.set({
-                  modelID: modelId,
-                  providerID: providerId,
-                })
-                break
-              }
-            }
-          } else {
-            // Fallback to first model of first provider if no defaults
-            for (const provider of providers) {
-              if (provider.models && Object.keys(provider.models).length > 0) {
-                const firstModelId = Object.keys(provider.models)[0]
-                store$.models.selected.set({
-                  modelID: firstModelId,
-                  providerID: provider.id,
-                })
-                break
-              }
-            }
+        if (!currentSelected) {
+          const selected = selectDefaultModel(providers, defaults || {})
+          if (selected) {
+            store$.models.selected.set(selected)
           }
         }
       } catch (error) {
@@ -268,7 +259,7 @@ export const actions = {
           setTimeout(() => {
             // Load sessions
             actions.sessions.loadSessions().catch(error => {
-              console.warn(
+              debug.warn(
                 'Failed to load sessions during initialization:',
                 error
               )
@@ -276,7 +267,7 @@ export const actions = {
 
             // Refresh providers to ensure we have the latest provider data
             actions.connection.refreshProviders().catch(error => {
-              console.warn(
+              debug.warn(
                 'Failed to refresh providers during initialization:',
                 error
               )
@@ -284,7 +275,7 @@ export const actions = {
           }, 0)
         }
       } catch (error) {
-        console.warn('Failed to initialize connection from storage:', error)
+        debug.warn('Failed to initialize connection from storage:', error)
       }
     },
 
@@ -349,7 +340,7 @@ export const actions = {
         try {
           await actions.connection.reconnect()
         } catch (error) {
-          console.error('Reconnection failed:', error)
+          debug.error('Reconnection failed:', error)
         }
       }, delay)
 
@@ -500,7 +491,10 @@ export const actions = {
       }
     },
 
-    addMessage: (sessionId: string, messageResponse: any) => {
+    addMessage: (
+      sessionId: string,
+      messageResponse: SessionMessageResponse
+    ) => {
       const currentMessages = store$.messages.bySessionId[sessionId].get() || []
 
       // Check if message already exists
@@ -523,7 +517,11 @@ export const actions = {
       }
     },
 
-    updateMessage: (sessionId: string, messageId: string, updates: any) => {
+    updateMessage: (
+      sessionId: string,
+      messageId: string,
+      updates: Partial<SessionMessageResponse>
+    ) => {
       store$.messages.bySessionId[sessionId].set(messages =>
         messages.map(msg =>
           msg.info.id === messageId ? { ...msg, ...updates } : msg
@@ -587,12 +585,10 @@ export const actions = {
 
         // Auto-select a default agent if none is currently selected
         const currentSelected = store$.agents.selected.get()
-        if (!currentSelected && agents.length > 0) {
-          // Prefer 'build' agent if available, otherwise select first available agent
-          const buildAgent = agents.find(a => a.name === 'build')
-          const defaultAgent = buildAgent || agents[0]
-          if (defaultAgent) {
-            store$.agents.selected.set(defaultAgent.name)
+        if (!currentSelected) {
+          const selected = selectDefaultAgent(agents)
+          if (selected) {
+            store$.agents.selected.set(selected)
           }
         }
       } catch (error) {
@@ -603,7 +599,10 @@ export const actions = {
         // Auto-select build agent as default
         const currentSelected = store$.agents.selected.get()
         if (!currentSelected) {
-          store$.agents.selected.set('build')
+          const selected = selectDefaultAgent(fallbackAgents)
+          if (selected) {
+            store$.agents.selected.set(selected)
+          }
         }
 
         setActionError(
