@@ -47,9 +47,11 @@ export default function ChatScreen() {
   const model = useSelector(selectedModel)
   const currentAgent = useSelector(selectedAgent)
   const isSending = useSelector(isSendingMessage)
+  const isAborting = useSelector(store$.messages.isAborting)
   const isLoading = useSelector(store$.messages.isLoading)
 
-  const isStreaming = isSending
+  // Fix: isStreaming should be false when aborting to prevent button state issues
+  const isStreaming = isSending && !isAborting
 
   const isTablet = width > 768
 
@@ -169,10 +171,21 @@ export default function ChatScreen() {
     }
   }
 
-  const handleStopStreaming = () => {
-    // TODO: Implement stop streaming functionality
-    // This would need to be added to the useMessages hook
-    console.log('Stop streaming requested')
+  const handleStopStreaming = async () => {
+    if (!id) return
+
+    // Check if already aborting to prevent duplicates
+    const isAborting = store$.messages.isAborting.get()
+    if (isAborting) return
+
+    try {
+      debug.log('Stop streaming requested for session:', id)
+      await actions.messages.abortSession(id)
+      debug.success('Session aborted successfully')
+    } catch (error) {
+      debug.error('Failed to abort session:', error)
+      // Error handling is managed by store actions
+    }
   }
 
   const handleModelSelect = (modelId: string) => {
@@ -332,6 +345,7 @@ export default function ChatScreen() {
             onStop={handleStopStreaming}
             onModelSelect={handleModelSelect}
             isStreaming={isStreaming}
+            isAborting={isAborting}
             currentModel={model?.id || ''}
             placeholder="Type a message..."
             size="$2"
