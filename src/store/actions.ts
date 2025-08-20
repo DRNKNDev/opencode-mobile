@@ -1,4 +1,4 @@
-import type { Agent, SessionMessageResponse } from '@opencode-ai/sdk'
+import type { Agent, Provider, SessionMessageResponse } from '@opencode-ai/sdk'
 import { NETWORK_CONFIG } from '../config/constants'
 import {
   openCodeService,
@@ -45,7 +45,7 @@ const getFallbackAgents = (): Agent[] => {
 
 // Simple helper to auto-select a model
 const selectDefaultModel = (
-  providers: any[],
+  providers: Provider[],
   defaults: Record<string, string>
 ) => {
   if (!providers?.length) return null
@@ -53,7 +53,7 @@ const selectDefaultModel = (
   // Try API defaults first
   if (defaults && Object.keys(defaults).length > 0) {
     for (const [providerId, modelId] of Object.entries(defaults)) {
-      const provider = providers.find((p: any) => p.id === providerId)
+      const provider = providers.find(p => p.id === providerId)
       if (provider?.models?.[modelId]) {
         return { modelID: modelId, providerID: providerId }
       }
