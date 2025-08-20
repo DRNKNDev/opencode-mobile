@@ -4,13 +4,32 @@ import { YStack, XStack, Text, Button } from 'tamagui'
 import { CodeBlock } from '../../code/CodeBlock'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
 import { detectLanguage } from '../../../utils/languageDetection'
-import type { ToolPartRendererProps } from '../../../types/tools'
+import type { ToolPart } from '@opencode-ai/sdk'
 
-export function ReadToolRenderer({ tool, status }: ToolPartRendererProps) {
+interface ReadToolRendererProps {
+  part: ToolPart
+  onCopy?: (content: string) => void
+}
+
+export function ReadToolRenderer({ part }: ReadToolRendererProps) {
   const { copyToClipboard } = useCopyToClipboard()
-  const { input, output } = tool.state
-  const currentStatus = status || tool.state.status
-  const filePath = input?.filePath || 'Unknown file'
+
+  // Get file path from input when available
+  const getFilePath = (): string => {
+    switch (part.state.status) {
+      case 'completed':
+      case 'running':
+      case 'error':
+        return (
+          (part.state.input as { filePath?: string })?.filePath ||
+          'Unknown file'
+        )
+      default:
+        return 'Unknown file'
+    }
+  }
+
+  const filePath = getFilePath()
 
   const handleCopyPath = () => {
     if (filePath) {
@@ -19,8 +38,8 @@ export function ReadToolRenderer({ tool, status }: ToolPartRendererProps) {
   }
 
   const handleCopyContent = () => {
-    if (output) {
-      copyToClipboard(output)
+    if (part.state.status === 'completed') {
+      copyToClipboard(part.state.output)
     }
   }
 
@@ -59,19 +78,19 @@ export function ReadToolRenderer({ tool, status }: ToolPartRendererProps) {
         </Text>
       </YStack>
 
-      {currentStatus === 'pending' && (
+      {part.state.status === 'pending' && (
         <Text fontSize="$3" color="$color11">
           Preparing to read file...
         </Text>
       )}
 
-      {currentStatus === 'running' && (
+      {part.state.status === 'running' && (
         <Text fontSize="$3" color="$color11">
           Reading file...
         </Text>
       )}
 
-      {currentStatus === 'completed' && output && (
+      {part.state.status === 'completed' && part.state.output && (
         <YStack gap="$2">
           <XStack alignItems="center" justifyContent="space-between">
             <Text fontSize="$2" color="$color11">
@@ -86,7 +105,7 @@ export function ReadToolRenderer({ tool, status }: ToolPartRendererProps) {
             />
           </XStack>
           <CodeBlock
-            code={output}
+            code={part.state.output}
             language={detectLanguage(filePath)}
             filename={filePath}
             copyable={false}
@@ -94,9 +113,9 @@ export function ReadToolRenderer({ tool, status }: ToolPartRendererProps) {
         </YStack>
       )}
 
-      {currentStatus === 'error' && (
+      {part.state.status === 'error' && (
         <Text fontSize="$3" color="$red11">
-          Failed to read: {tool.state.error || 'Unknown error'}
+          Failed to read: {part.state.error || 'Unknown error'}
         </Text>
       )}
     </YStack>

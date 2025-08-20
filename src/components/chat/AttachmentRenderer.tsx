@@ -1,11 +1,11 @@
 import { Paperclip } from '@tamagui/lucide-icons'
 import React from 'react'
 import { Card, Text, XStack, YStack } from 'tamagui'
-import type { MessagePart } from '../../services/types'
+import type { Part } from '@opencode-ai/sdk'
 import { getFileName, isImageMimeType } from '../../utils/fileUtils'
 
 export interface AttachmentRendererProps {
-  files: MessagePart[]
+  files: Part[]
 }
 
 function isPdfFile(filename: string): boolean {
@@ -17,10 +17,12 @@ export function AttachmentRenderer({ files }: AttachmentRendererProps) {
     return null
   }
 
-  // Filter to only show images and PDFs
+  // Filter to only show file parts that are images and PDFs
   const visibleFiles = files.filter(file => {
-    const filename = file.filename || ''
-    return isImageMimeType(file.mime) || isPdfFile(filename)
+    if (file.type !== 'file') return false
+    const filename = 'filename' in file ? file.filename || '' : ''
+    const mimeType = 'mime' in file ? file.mime : undefined
+    return isImageMimeType(mimeType) || isPdfFile(filename)
   })
 
   // If no visible files, don't render anything
@@ -49,8 +51,12 @@ export function AttachmentRenderer({ files }: AttachmentRendererProps) {
       {/* File List */}
       <YStack gap="$2">
         {visibleFiles.map((file, index) => {
-          const filename = getFileName(file.filename || '')
-          const isImage = isImageMimeType(file.mime)
+          const filename = getFileName(
+            'filename' in file ? file.filename || '' : 'Unknown file'
+          )
+          const isImage = isImageMimeType(
+            'mime' in file ? file.mime : undefined
+          )
 
           if (isImage) {
             imageCounter++

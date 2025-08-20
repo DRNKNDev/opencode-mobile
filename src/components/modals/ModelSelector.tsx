@@ -1,12 +1,13 @@
+import { useSelector } from '@legendapp/state/react'
+import type { Model, Provider } from '@opencode-ai/sdk'
 import { RefreshCw, X } from '@tamagui/lucide-icons'
 import { RadioGroup } from '@tamagui/radio-group'
 import { Sheet } from '@tamagui/sheet'
 import React, { useEffect, useState } from 'react'
-import { useSelector } from '@legendapp/state/react'
 import { Button, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
 import { store$ } from '../../store'
 import { actions } from '../../store/actions'
-import type { Model } from '../../services/types'
+import { debug } from '../../utils/debug'
 
 export interface ModelSelectorProps {
   open: boolean
@@ -21,22 +22,30 @@ export function ModelSelector({
   selectedModel,
   onModelSelect,
 }: ModelSelectorProps) {
-  const availableModels = useSelector(store$.models.available)
-  const defaultModels = useSelector(store$.models.defaults)
+  const providers = useSelector(store$.models.providers)
   const isLoading = useSelector(store$.models.isLoading)
   const error = useSelector(store$.connection.error)
   const [instanceId] = useState(() =>
     Math.random().toString(36).substring(2, 9)
   )
 
+  // Create available models from providers (deduplicated by model ID)
+  const availableModels = providers
+    .flatMap((provider: Provider) =>
+      provider.models ? Object.values(provider.models) : []
+    )
+    .filter(
+      (model, index, array) => index === array.findIndex(m => m.id === model.id)
+    )
+
   // Load models when modal opens if not already loaded
   useEffect(() => {
-    if (open && availableModels.length === 0 && !isLoading) {
-      actions.connection.refreshModels().catch((error: Error) => {
-        console.warn('Failed to refresh models in ModelSelector:', error)
+    if (open && providers.length === 0 && !isLoading) {
+      actions.connection.refreshProviders().catch((error: Error) => {
+        debug.warn('Failed to refresh providers in ModelSelector:', error)
       })
     }
-  }, [open, availableModels.length, isLoading])
+  }, [open, providers.length, isLoading])
 
   const handleModelSelect = (modelId: string) => {
     onModelSelect(modelId)
@@ -49,29 +58,48 @@ export function ModelSelector({
 
   const handleRefresh = async () => {
     try {
-      await actions.connection.refreshModels()
+      await actions.connection.refreshProviders()
     } catch (err) {
       // Error is handled by the store actions
-      console.error('Failed to refresh models:', err)
+      debug.error('Failed to refresh providers:', err)
     }
   }
 
-  // Helper function to check if a model is the default for its provider
+  // Helper function to check if a model is the API-provided default for its provider
   const isDefaultModel = (model: Model): boolean => {
-    const providerId = model.providerId || model.provider.toLowerCase()
-    return defaultModels[providerId] === model.id
+    const provider = providers.find(
+      (p: Provider) =>
+        p.models &&
+        Object.values(p.models).some((m: Model) => m.id === model.id)
+    )
+    if (!provider?.models) return false
+
+    // Check if this model is the API-provided default for this provider
+    const defaults = store$.models.defaults.get()
+    const defaultModelId = defaults[provider.id]
+
+    return defaultModelId === model.id
   }
 
-  // Get default models as a separate group
+  // Get default models as a separate group (first model from each provider)
   const defaultModelsList = availableModels.filter(isDefaultModel)
 
-  // Group all models by provider
-  const groupedModels = availableModels.reduce(
-    (acc, model) => {
-      if (!acc[model.provider]) {
-        acc[model.provider] = []
+  // Group non-default models by provider (exclude models that are already in defaults)
+  const defaultModelIds = new Set(defaultModelsList.map(m => m.id))
+  const nonDefaultModels = availableModels.filter(
+    model => !defaultModelIds.has(model.id)
+  )
+
+  const groupedModels = nonDefaultModels.reduce(
+    (acc: Record<string, Model[]>, model: Model) => {
+      const provider = providers.find(
+        p => p.models && Object.values(p.models).some(m => m.id === model.id)
+      )
+      const providerName = provider?.name || provider?.id || 'Unknown'
+      if (!acc[providerName]) {
+        acc[providerName] = []
       }
-      acc[model.provider].push(model)
+      acc[providerName].push(model)
       return acc
     },
     {} as Record<string, Model[]>
@@ -91,66 +119,69 @@ export function ModelSelector({
     model: Model
     showProvider?: boolean
     section?: 'default' | 'provider'
-  }) => (
-    <XStack
-      alignItems="center"
-      gap="$3"
-      padding="$3"
-      borderRadius="$2"
-      pressStyle={{
-        backgroundColor: '$backgroundPress',
-      }}
-      hoverStyle={{
-        backgroundColor: '$backgroundHover',
-      }}
-      onPress={() => handleModelSelect(model.id)}
-    >
-      <RadioGroup.Item
-        value={model.id}
-        id={`${instanceId}-${section}-${model.id}`}
-        size="$4"
-      >
-        <RadioGroup.Indicator />
-      </RadioGroup.Item>
+  }) => {
+    // Get provider name for this model
+    const modelProvider = providers.find(
+      p => p.models && Object.values(p.models).some(m => m.id === model.id)
+    )
+    const providerName = modelProvider?.name || modelProvider?.id || 'Unknown'
 
-      <YStack flex={1}>
-        <XStack alignItems="center" gap="$2">
-          <Text
-            fontSize="$4"
-            fontWeight="500"
-            color={selectedModel === model.id ? '$blue10' : '$color'}
-          >
-            {model.name}
-          </Text>
-          {showProvider && (
+    return (
+      <XStack
+        alignItems="center"
+        gap="$3"
+        padding="$3"
+        borderRadius="$2"
+        pressStyle={{
+          backgroundColor: '$backgroundPress',
+        }}
+        hoverStyle={{
+          backgroundColor: '$backgroundHover',
+        }}
+        onPress={() => handleModelSelect(model.id)}
+      >
+        <RadioGroup.Item
+          value={model.id}
+          id={`${instanceId}-${section}-${model.id}`}
+          size="$4"
+        >
+          <RadioGroup.Indicator />
+        </RadioGroup.Item>
+
+        <YStack flex={1}>
+          <XStack alignItems="center" gap="$2">
             <Text
-              fontSize="$2"
+              fontSize="$4"
               fontWeight="500"
-              color="$color11"
-              backgroundColor="$color4"
-              paddingHorizontal="$2"
-              paddingVertical="$1"
-              borderRadius="$2"
+              color={selectedModel === model.id ? '$blue10' : '$color'}
             >
-              {model.provider}
+              {model.name}
             </Text>
-          )}
-        </XStack>
-        {model.description && (
-          <Text fontSize="$3" color="$color11">
-            {model.description}
-          </Text>
-        )}
-      </YStack>
-    </XStack>
-  )
+            {showProvider && (
+              <Text
+                fontSize="$2"
+                fontWeight="500"
+                color="$color11"
+                backgroundColor="$color4"
+                paddingHorizontal="$2"
+                paddingVertical="$1"
+                borderRadius="$2"
+              >
+                {providerName}
+              </Text>
+            )}
+          </XStack>
+        </YStack>
+      </XStack>
+    )
+  }
 
   return (
     <Sheet
       modal
       open={open}
       onOpenChange={onOpenChange}
-      snapPoints={[60, 85]}
+      snapPoints={[60]}
       dismissOnSnapToBottom
       animation="medium"
       zIndex={100_000}
@@ -250,7 +281,7 @@ export function ModelSelector({
                     >
                       <YStack gap="$1" paddingRight="$2">
                         {defaultModelsList.map((model, index) => (
-                          <YStack key={`recommended-${model.id}`}>
+                          <YStack key={`default-${model.id}-${index}`}>
                             <ModelItem
                               model={model}
                               showProvider={true}
@@ -284,9 +315,10 @@ export function ModelSelector({
                               {provider}
                             </Text>
                             <Text fontSize="$3" color="$color11">
-                              ({providerModels.length})
+                              ({(providerModels as Model[]).length})
                             </Text>
-                            {providerModels.length > MAX_VISIBLE_MODELS && (
+                            {(providerModels as Model[]).length >
+                              MAX_VISIBLE_MODELS && (
                               <Text
                                 fontSize="$2"
                                 color="$color10"
@@ -315,20 +347,24 @@ export function ModelSelector({
                               nestedScrollEnabled={true}
                             >
                               <YStack gap="$1" paddingRight="$2">
-                                {providerModels.map((model, index) => (
-                                  <YStack key={model.id}>
-                                    <ModelItem
-                                      model={model}
-                                      section="provider"
-                                    />
-                                    {index < providerModels.length - 1 && (
-                                      <Separator
-                                        marginHorizontal="$3"
-                                        borderWidth={0.5}
+                                {providerModels.map(
+                                  (model: Model, index: number) => (
+                                    <YStack
+                                      key={`${provider}-${model.id}-${index}`}
+                                    >
+                                      <ModelItem
+                                        model={model}
+                                        section="provider"
                                       />
-                                    )}
-                                  </YStack>
-                                ))}
+                                      {index < providerModels.length - 1 && (
+                                        <Separator
+                                          marginHorizontal="$3"
+                                          borderWidth={0.5}
+                                        />
+                                      )}
+                                    </YStack>
+                                  )
+                                )}
                               </YStack>
                             </Sheet.ScrollView>
                           </YStack>

@@ -1,5 +1,6 @@
 import { LegendList, LegendListRef } from '@legendapp/list'
 import { useSelector } from '@legendapp/state/react'
+import type { SessionMessageResponse } from '@opencode-ai/sdk'
 import { ChevronDown } from '@tamagui/lucide-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -15,18 +16,17 @@ import { InputBar } from '../components/chat/InputBar'
 import { MessageBubble } from '../components/chat/MessageBubble'
 import { Header } from '../components/ui/Header'
 import { MessageSkeleton } from '../components/ui/SkeletonLoader'
-import type { Message } from '../services/types'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
 import {
   currentMessages,
   currentSession,
-  getDefaultModelForProvider,
   isConnected,
   isSendingMessage,
-  selectedMode,
+  selectedAgent,
   selectedModel,
 } from '../store/computed'
+import { debug } from '../utils/debug'
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -45,7 +45,7 @@ export default function ChatScreen() {
   const messages = useSelector(currentMessages)
   const session = useSelector(currentSession)
   const model = useSelector(selectedModel)
-  const currentMode = useSelector(selectedMode)
+  const currentAgent = useSelector(selectedAgent)
   const isSending = useSelector(isSendingMessage)
   const isLoading = useSelector(store$.messages.isLoading)
 
@@ -56,8 +56,8 @@ export default function ChatScreen() {
   // Sort all messages chronologically by timestamp
   const sortedMessages = useMemo(() => {
     return messages.sort((a, b) => {
-      const timeA = a.timestamp.getTime()
-      const timeB = b.timestamp.getTime()
+      const timeA = a.info.time.created
+      const timeB = b.info.time.created
 
       // Handle placeholder timestamps (epoch time) - keep streaming messages at end
       if (timeA === 0) return 1
@@ -90,7 +90,7 @@ export default function ChatScreen() {
       const lastMessage = sortedMessages[sortedMessages.length - 1]
       // Capture isNearBottom at the time of message addition
       const wasNearBottom = isNearBottom
-      if (lastMessage.role === 'assistant' && wasNearBottom) {
+      if (lastMessage.info.role === 'assistant' && wasNearBottom) {
         setTimeout(() => scrollToBottom(), 100)
       }
       prevMessagesLength.current = sortedMessages.length
@@ -100,7 +100,9 @@ export default function ChatScreen() {
 
   // Auto-scroll during streaming if user is near bottom
   useEffect(() => {
-    const hasStreamingMessage = sortedMessages.some(m => m.isStreaming)
+    const hasStreamingMessage = sortedMessages.some(
+      m => m.info.role === 'assistant' && !('completed' in m.info.time)
+    )
 
     if (hasStreamingMessage && isNearBottom) {
       // Smooth scroll during streaming
@@ -152,16 +154,14 @@ export default function ChatScreen() {
     setTimeout(() => scrollToBottom(), 100)
 
     try {
-      const providerId =
-        model.providerId ||
-        getDefaultModelForProvider(model.provider) ||
-        'anthropic'
+      const currentSelection = store$.models.selected.get()
+      const providerId = currentSelection?.providerID || 'anthropic'
       await actions.messages.sendMessage(
         id,
         messageContent,
         model.id,
         providerId,
-        currentMode?.name || 'build'
+        currentAgent?.name || 'build'
       )
     } catch (err) {
       console.error('Failed to send message:', err)
@@ -176,10 +176,30 @@ export default function ChatScreen() {
   }
 
   const handleModelSelect = (modelId: string) => {
-    actions.models.selectModel(modelId)
+    // Find which provider owns this model
+    const providers = store$.models.providers.get()
+    let foundProviderId: string | null = null
+
+    for (const provider of providers) {
+      if (provider.models && provider.models[modelId]) {
+        foundProviderId = provider.id
+        break
+      }
+    }
+
+    // If we found the provider, use it; otherwise fall back to current or default
+    if (foundProviderId) {
+      actions.models.selectModel(modelId, foundProviderId)
+    } else {
+      // This shouldn't happen if the model selector is working correctly
+      debug.warn(`Could not find provider for model ${modelId}`)
+      const currentSelection = store$.models.selected.get()
+      const providerId = currentSelection?.providerID || 'anthropic'
+      actions.models.selectModel(modelId, providerId)
+    }
   }
 
-  const renderMessage = ({ item }: { item: Message }) => (
+  const renderMessage = ({ item }: { item: SessionMessageResponse }) => (
     <MessageBubble message={item} />
   )
 
@@ -244,7 +264,7 @@ export default function ChatScreen() {
               ref={listRef}
               data={sortedMessages}
               renderItem={renderMessage}
-              keyExtractor={item => item.id}
+              keyExtractor={item => item.info.id}
               showsVerticalScrollIndicator={false}
               onScroll={handleScroll}
               style={{ flex: 1 }}

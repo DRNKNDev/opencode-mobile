@@ -9,10 +9,18 @@ import {
 import React from 'react'
 import { Button, Text, XStack, YStack } from 'tamagui'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
-import type { TodoItem } from '../../../types/todo'
-import type { ToolPartRendererProps } from '../../../types/tools'
+import type { ToolPart } from '@opencode-ai/sdk'
 
-interface TodoWriteToolRendererProps extends ToolPartRendererProps {
+interface TodoItem {
+  id: string
+  content: string
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  priority: 'high' | 'medium' | 'low'
+}
+
+interface TodoWriteToolRendererProps {
+  part: ToolPart
+  onCopy?: (content: string) => void
   isExpanded: boolean
 }
 
@@ -43,14 +51,15 @@ const getPriorityColor = (priority: TodoItem['priority']) => {
 }
 
 export function TodoWriteToolRenderer({
-  tool,
-  status,
+  part,
   isExpanded,
 }: TodoWriteToolRendererProps) {
   const { copyToClipboard } = useCopyToClipboard()
-  const input = tool.state.input || {}
-  const currentStatus = status || tool.state.status
-  const todos = input.todos || []
+  const input =
+    part.state.status === 'completed' || part.state.status === 'running'
+      ? part.state.input
+      : {}
+  const todos = (input as any)?.todos || []
 
   const handleCopyTodos = () => {
     const todoText = todos
@@ -123,27 +132,28 @@ export function TodoWriteToolRenderer({
         </YStack>
       )}
 
-      {currentStatus === 'pending' && (
+      {part.state.status === 'pending' && (
         <Text fontSize="$3" color="$color11">
           Preparing to update todos...
         </Text>
       )}
 
-      {currentStatus === 'running' && (
+      {part.state.status === 'running' && (
         <Text fontSize="$3" color="$color11">
           Updating todo list...
         </Text>
       )}
 
-      {currentStatus === 'completed' && (
+      {part.state.status === 'completed' && (
         <Text fontSize="$3" color="$green11">
           Todo list updated successfully
         </Text>
       )}
 
-      {currentStatus === 'error' && (
+      {part.state.status === 'error' && (
         <Text fontSize="$3" color="$red11">
-          Failed to update todos: {tool.state.error || 'Unknown error'}
+          Failed to update todos:{' '}
+          {part.state.status === 'error' ? part.state.error : 'Unknown error'}
         </Text>
       )}
     </YStack>

@@ -1,9 +1,31 @@
-import Opencode from '@opencode-ai/sdk'
-import type { Mode } from '../components/modals/ModeSelector'
-import { NETWORK_CONFIG } from '../config/constants'
-import { debug } from '../utils/debug'
-import { SSEEventStream, type StreamResponse } from './sse'
-import type { Message, Model, Session } from './types'
+// Import types from the main SDK (these are just TypeScript types, no runtime code)
+import type {
+  Agent,
+  Event,
+  Message,
+  Part,
+  Provider,
+  Session,
+  TextPartInput,
+} from '@opencode-ai/sdk'
+
+// Import EventSource from react-native-sse for SSE transport layer
+import EventSource from 'react-native-sse'
+
+// Import the client creation functions directly from internals to avoid Node.js dependencies
+// @ts-ignore - These internal paths work at runtime but aren't in the package exports
+import { createClient } from '@opencode-ai/sdk/dist/gen/client/client.js'
+// @ts-ignore
+import { OpencodeClient } from '@opencode-ai/sdk/dist/gen/sdk.gen.js'
+
+// Import debug utility for logging
+import { debug } from '@/src/utils/debug'
+
+// Create our own createOpencodeClient function that avoids the main SDK entry point
+function createOpencodeClient(config: { baseUrl: string }) {
+  const client = createClient(config)
+  return new OpencodeClient({ client })
+}
 
 export interface OpenCodeConfig {
   baseURL: string
@@ -20,19 +42,18 @@ export interface SendMessageRequest {
   content: string
   modelId: string
   providerId: string
-  mode?: string
+  agent?: string
 }
 
 class OpenCodeService {
-  private client: Opencode | null = null
+  private client: ReturnType<typeof createOpencodeClient> | null = null
   private config: OpenCodeConfig | null = null
+  private eventSource: EventSource | null = null
 
   initialize(config: OpenCodeConfig): void {
     this.config = config
-    this.client = new Opencode({
-      baseURL: config.baseURL,
-      timeout: config.timeout || NETWORK_CONFIG.timeout, // Use centralized timeout config
-      maxRetries: config.maxRetries || NETWORK_CONFIG.maxRetries,
+    this.client = createOpencodeClient({
+      baseUrl: config.baseURL,
     })
   }
 
@@ -50,8 +71,13 @@ class OpenCodeService {
     }
 
     try {
-      // Try to get app info to check if server is responding
-      await this.client.app.get()
+      const response = await this.client.app.get()
+      if ('error' in response && response.error) {
+        return {
+          status: 'error',
+          error: 'Failed to get app info',
+        }
+      }
       return { status: 'ok' }
     } catch (error) {
       return {
@@ -61,57 +87,44 @@ class OpenCodeService {
     }
   }
 
-  async getModels(): Promise<{
-    models: Model[]
-    defaultModels: Record<string, string>
+  async getProviders(): Promise<{
+    providers: Provider[]
+    default: Record<string, string>
   }> {
     if (!this.client) {
       throw new Error('Client not initialized')
     }
 
     try {
-      const response = await this.client.app.providers()
-
-      // Transform response to our Model interface
-      const models: Model[] = []
-
-      response.providers.forEach(provider => {
-        Object.entries(provider.models).forEach(([modelId, model]) => {
-          models.push({
-            id: modelId,
-            name: model.name,
-            provider: provider.name,
-            providerId: provider.id,
-            description: `${model.name} - Context: ${model.limit.context}, Output: ${model.limit.output}`,
-          })
-        })
-      })
+      const response = await this.client.config.providers()
+      if ('error' in response && response.error) {
+        throw new Error('Failed to fetch providers')
+      }
 
       return {
-        models,
-        defaultModels: response.default || {},
+        providers: response.data?.providers || [],
+        default: response.data?.default || {},
       }
     } catch (error) {
-      console.error('Failed to fetch models:', error)
+      console.error('Failed to fetch providers:', error)
       throw error
     }
   }
 
-  async getModes(): Promise<Mode[]> {
+  async getAgents(): Promise<Agent[]> {
     if (!this.client) {
       throw new Error('Client not initialized')
     }
 
     try {
-      const response = await this.client.app.modes()
-      // Transform to match our interface structure
-      return response.map((apiMode: any) => ({
-        name: apiMode.name,
-        tools: apiMode.tools || {},
-        model: apiMode.model || { modelID: '', providerID: '' },
-      }))
+      const response = await this.client.app.agents()
+      if ('error' in response && response.error) {
+        throw new Error('Failed to fetch agents')
+      }
+
+      return response.data || []
     } catch (error) {
-      console.error('Failed to fetch modes:', error)
+      console.error('Failed to fetch agents:', error)
       throw error
     }
   }
@@ -123,17 +136,11 @@ class OpenCodeService {
 
     try {
       const response = await this.client.session.list()
+      if ('error' in response && response.error) {
+        throw new Error('Failed to fetch sessions')
+      }
 
-      // Return SDK Session structure as-is
-      return response.map(session => ({
-        id: session.id,
-        time: session.time,
-        title: session.title || 'Untitled Session',
-        version: session.version,
-        parentID: session.parentID,
-        revert: session.revert,
-        share: session.share,
-      }))
+      return response.data || []
     } catch (error) {
       console.error('Failed to fetch sessions:', error)
       throw error
@@ -147,16 +154,15 @@ class OpenCodeService {
 
     try {
       const response = await this.client.session.create()
-
-      return {
-        id: response.id,
-        time: response.time,
-        title: response.title || 'Untitled Session',
-        version: response.version,
-        parentID: response.parentID,
-        revert: response.revert,
-        share: response.share,
+      if ('error' in response && response.error) {
+        throw new Error('Failed to create session')
       }
+
+      if (!response.data) {
+        throw new Error('No session data returned')
+      }
+
+      return response.data
     } catch (error) {
       console.error('Failed to create session:', error)
       throw error
@@ -169,263 +175,224 @@ class OpenCodeService {
     }
 
     try {
-      await this.client.session.delete(sessionId)
+      const response = await this.client.session.delete({
+        path: { id: sessionId },
+      })
+      if ('error' in response && response.error) {
+        throw new Error('Failed to delete session')
+      }
     } catch (error) {
       console.error('Failed to delete session:', error)
       throw error
     }
   }
 
-  async getMessages(sessionId: string): Promise<Message[]> {
+  async getMessages(
+    sessionId: string
+  ): Promise<{ info: Message; parts: Part[] }[]> {
     if (!this.client) {
       throw new Error('Client not initialized')
     }
 
     try {
-      const response = await this.client.session.messages(sessionId)
-
-      return response.map(item => {
-        const message = item.info
-        const textParts = item.parts.filter(
-          part => part.type === 'text'
-        ) as Opencode.TextPart[]
-        const content = textParts.map(part => part.text).join('')
-
-        return {
-          id: message.id,
-          sessionId: message.sessionID,
-          role: message.role,
-          content: content,
-          timestamp: new Date(
-            message.role === 'user'
-              ? (message as Opencode.UserMessage).time.created
-              : (message as Opencode.AssistantMessage).time.created
-          ),
-          status: 'sent' as const,
-          parts: item.parts
-            .filter(part => {
-              // Filter out unwanted part types at the source
-              const unwantedTypes = ['step-start', 'step-finish', 'snapshot']
-              return !unwantedTypes.includes(part.type)
-            })
-            .map((part, partIndex) => {
-              debug.log(
-                `Processing part ${partIndex} for message ${message.id}:`,
-                {
-                  originalPartType: part.type,
-                  mappedPartType: this.mapPartType(part.type),
-                  isTextPart: part.type === 'text',
-                  isToolPart: part.type === 'tool',
-                  isFilePart: part.type === 'file',
-                  toolName:
-                    part.type === 'tool'
-                      ? (part as Opencode.ToolPart).tool
-                      : undefined,
-                  toolState:
-                    part.type === 'tool'
-                      ? (part as Opencode.ToolPart).state
-                      : undefined,
-                  fileName:
-                    part.type === 'file'
-                      ? (part as Opencode.FilePart).filename
-                      : undefined,
-                  fullPart: part,
-                }
-              )
-
-              const mappedPart = {
-                type: this.mapPartType(part.type),
-                content:
-                  part.type === 'text'
-                    ? (part as Opencode.TextPart).text
-                    : part.type === 'file'
-                      ? `File: ${(part as Opencode.FilePart).filename}`
-                      : '',
-                language:
-                  part.type === 'file'
-                    ? this.getLanguageFromFilename(
-                        (part as Opencode.FilePart).filename || 'unknown'
-                      )
-                    : undefined,
-                toolName:
-                  part.type === 'tool'
-                    ? (part as Opencode.ToolPart).tool
-                    : undefined,
-                toolResult:
-                  part.type === 'tool'
-                    ? (part as Opencode.ToolPart).state
-                    : undefined,
-                synthetic:
-                  part.type === 'text'
-                    ? (part as Opencode.TextPart).synthetic
-                    : undefined,
-                // File-specific properties
-                mime:
-                  part.type === 'file'
-                    ? (part as Opencode.FilePart).mime
-                    : undefined,
-                filename:
-                  part.type === 'file'
-                    ? (part as Opencode.FilePart).filename
-                    : undefined,
-                url:
-                  part.type === 'file'
-                    ? (part as Opencode.FilePart).url
-                    : undefined,
-              }
-
-              debug.success(`Created mapped part ${partIndex}:`, mappedPart)
-              return mappedPart
-            }),
-        }
+      const response = await this.client.session.messages({
+        path: { id: sessionId },
       })
+      if ('error' in response && response.error) {
+        throw new Error('Failed to fetch messages')
+      }
+
+      return response.data || []
     } catch (error) {
       console.error('Failed to fetch messages:', error)
       throw error
     }
   }
 
-  async sendMessage(
-    request: SendMessageRequest
-  ): Promise<Opencode.AssistantMessage> {
+  async sendMessage(request: SendMessageRequest): Promise<void> {
     if (!this.client) {
       throw new Error('Client not initialized')
     }
 
     try {
-      const messageId = `msg${Math.random().toString(36).substring(2, 15)}`
-
-      const response = await this.client.session.chat(request.sessionId, {
-        messageID: messageId,
-        mode: request.mode || 'chat',
-        modelID: request.modelId,
-        providerID: request.providerId,
-        parts: [
-          {
-            id: Math.random().toString(36).substring(2, 15),
-            messageID: messageId,
-            sessionID: request.sessionId,
-            text: request.content,
-            type: 'text' as const,
-          },
-        ],
+      const response = await this.client.session.chat({
+        path: { id: request.sessionId },
+        body: {
+          modelID: request.modelId,
+          providerID: request.providerId,
+          agent: request.agent,
+          parts: [
+            {
+              type: 'text',
+              text: request.content,
+            } as TextPartInput,
+          ],
+        },
       })
 
-      return response
+      if ('error' in response && response.error) {
+        throw new Error('Failed to send message')
+      }
     } catch (error) {
       console.error('Failed to send message:', error)
       throw error
     }
   }
 
-  async *streamEvents(): AsyncGenerator<StreamResponse> {
-    if (!this.client) {
-      throw new Error('Client not initialized')
+  // SSE event streaming using react-native-sse
+  async *streamEvents(): AsyncGenerator<Event> {
+    if (!this.config) {
+      throw new Error('Service not initialized')
     }
 
+    // SSE stream controller for AsyncGenerator pattern
+    interface StreamController {
+      eventQueue: Event[]
+      resolveNext: ((value: IteratorResult<Event>) => void) | null
+      rejectNext: ((error: any) => void) | null
+      closed: boolean
+    }
+
+    const controller: StreamController = {
+      eventQueue: [],
+      resolveNext: null,
+      rejectNext: null,
+      closed: false,
+    }
+
+    let eventCount = 0
+
     try {
-      // Create SSE event stream with config - now directly outputs StreamResponse
-      const sseStream = new SSEEventStream({
-        baseURL: this.config!.baseURL,
-        timeout: NETWORK_CONFIG.timeout, // Use centralized timeout for streaming
-        pollingInterval: 5000, // Auto-reconnect
-        debug: __DEV__,
+      // Create EventSource connection
+      const eventURL = `${this.config.baseURL}/event`
+      debug.log('SSE: Connecting to', eventURL)
+
+      this.eventSource = new EventSource(eventURL)
+
+      // EventSource message handler - simplified JSON parsing
+      this.eventSource.addEventListener('message', (event: any) => {
+        debug.log('SSE: Received message', event.data)
+
+        const data = event.data
+        if (data && data !== '[DONE]') {
+          try {
+            const eventObj: Event = JSON.parse(data)
+            eventCount++
+
+            // Log first few events for debugging
+            if (eventCount <= 3) {
+              debug.log('SSE: Parsed event', {
+                type: eventObj.type,
+                eventCount,
+              })
+            }
+
+            // Add to queue
+            controller.eventQueue.push(eventObj)
+
+            // Resolve pending next() call if any
+            if (controller.resolveNext) {
+              const resolve = controller.resolveNext
+              controller.resolveNext = null
+              resolve({ value: eventObj, done: false })
+            }
+          } catch (e) {
+            debug.error('SSE: Failed to parse event JSON', e)
+            // Continue processing other events
+          }
+        } else if (data === '[DONE]') {
+          debug.log('SSE: Stream completed with DONE marker')
+          controller.closed = true
+
+          if (controller.resolveNext) {
+            const resolve = controller.resolveNext
+            controller.resolveNext = null
+            resolve({ value: undefined, done: true })
+          }
+        }
       })
 
-      // Stream events directly - no transformation needed
-      for await (const streamResponse of sseStream.streamEvents()) {
-        yield streamResponse
+      // EventSource connection opened
+      this.eventSource.addEventListener('open', () => {
+        debug.success('SSE: Connection established')
+      })
+
+      // EventSource error handler
+      this.eventSource.addEventListener('error', (event: any) => {
+        debug.error('SSE: Connection error', event)
+        controller.closed = true
+
+        if (controller.rejectNext) {
+          const reject = controller.rejectNext
+          controller.rejectNext = null
+          reject(new Error('SSE connection error'))
+        }
+      })
+
+      // AsyncGenerator implementation
+      try {
+        while (!controller.closed) {
+          // If we have queued events, yield them immediately
+          if (controller.eventQueue.length > 0) {
+            const event = controller.eventQueue.shift()!
+            yield event
+            continue
+          }
+
+          // Wait for next event
+          const result = await new Promise<IteratorResult<Event>>(
+            (resolve, reject) => {
+              if (controller.closed) {
+                resolve({ value: undefined, done: true })
+                return
+              }
+
+              controller.resolveNext = resolve
+              controller.rejectNext = reject
+            }
+          )
+
+          if (result.done) {
+            break
+          }
+
+          yield result.value
+        }
+      } finally {
+        // Cleanup on generator completion
+        debug.log('SSE: Cleaning up connection')
+        controller.closed = true
+        controller.eventQueue = []
+        controller.resolveNext = null
+        controller.rejectNext = null
+
+        if (this.eventSource) {
+          this.eventSource.close()
+          this.eventSource = null
+        }
       }
+
+      debug.success(`SSE: Stream completed, processed ${eventCount} events`)
     } catch (error) {
-      console.error('Failed to stream events:', error)
+      debug.error('SSE: Stream failed', error)
+
+      // Cleanup on error
+      if (this.eventSource) {
+        this.eventSource.close()
+        this.eventSource = null
+      }
+
       throw error
     }
   }
 
-  private mapPartType(
-    partType: string
-  ): 'text' | 'code' | 'tool_execution' | 'file' {
-    debug.log('mapPartType called with:', partType)
-
-    switch (partType) {
-      case 'text':
-        debug.success('Mapped to: text')
-        return 'text'
-      case 'tool':
-        debug.success('Mapped to: tool_execution')
-        return 'tool_execution'
-      case 'file':
-        debug.success('Mapped to: file')
-        return 'file'
-      default:
-        debug.warn('Unknown part type, defaulting to: text')
-        return 'text'
-    }
-  }
-
-  private getLanguageFromFilename(filename: string): string {
-    const ext = filename.split('.').pop()?.toLowerCase()
-
-    switch (ext) {
-      case 'js':
-      case 'jsx':
-        return 'javascript'
-      case 'ts':
-      case 'tsx':
-        return 'typescript'
-      case 'py':
-        return 'python'
-      case 'java':
-        return 'java'
-      case 'cpp':
-      case 'cc':
-      case 'cxx':
-        return 'cpp'
-      case 'c':
-        return 'c'
-      case 'cs':
-        return 'csharp'
-      case 'php':
-        return 'php'
-      case 'rb':
-        return 'ruby'
-      case 'go':
-        return 'go'
-      case 'rs':
-        return 'rust'
-      case 'swift':
-        return 'swift'
-      case 'kt':
-        return 'kotlin'
-      case 'scala':
-        return 'scala'
-      case 'sh':
-      case 'bash':
-        return 'bash'
-      case 'json':
-        return 'json'
-      case 'xml':
-        return 'xml'
-      case 'html':
-        return 'html'
-      case 'css':
-        return 'css'
-      case 'scss':
-      case 'sass':
-        return 'scss'
-      case 'md':
-        return 'markdown'
-      case 'yaml':
-      case 'yml':
-        return 'yaml'
-      case 'sql':
-        return 'sql'
-      default:
-        return 'text'
-    }
-  }
-
   disconnect(): void {
+    // Close any active EventSource
+    if (this.eventSource) {
+      this.eventSource.close()
+      this.eventSource = null
+    }
+
     this.client = null
     this.config = null
   }

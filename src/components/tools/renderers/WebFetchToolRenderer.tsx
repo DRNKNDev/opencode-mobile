@@ -2,30 +2,53 @@ import React from 'react'
 import { Globe, Copy, ExternalLink } from '@tamagui/lucide-icons'
 import { YStack, XStack, Text, Button, ScrollView } from 'tamagui'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
-import type { ToolPartRendererProps } from '../../../types/tools'
+import type { ToolPart } from '@opencode-ai/sdk'
 
-interface WebFetchToolRendererProps extends ToolPartRendererProps {
+interface WebFetchToolRendererProps {
+  part: ToolPart
   isExpanded: boolean
+  onCopy?: (content: string) => void
 }
 
 export function WebFetchToolRenderer({
-  tool,
-  status,
+  part,
   isExpanded,
 }: WebFetchToolRendererProps) {
   const { copyToClipboard } = useCopyToClipboard()
-  const input = tool.state.input || {}
-  const currentStatus = status || tool.state.status
+
+  // Get webfetch data from input when available
+  const getWebFetchData = () => {
+    switch (part.state.status) {
+      case 'completed':
+      case 'running':
+      case 'error':
+        const input = part.state.input as {
+          url?: string
+          format?: string
+        }
+        return {
+          url: input.url,
+          format: input.format,
+        }
+      default:
+        return {
+          url: undefined,
+          format: undefined,
+        }
+    }
+  }
+
+  const { url, format } = getWebFetchData()
 
   const handleCopyUrl = () => {
-    if (input.url) {
-      copyToClipboard(input.url)
+    if (url) {
+      copyToClipboard(url)
     }
   }
 
   const handleCopyContent = () => {
-    if (tool.state.output) {
-      copyToClipboard(tool.state.output)
+    if (part.state.status === 'completed') {
+      copyToClipboard(part.state.output)
     }
   }
 
@@ -34,7 +57,7 @@ export function WebFetchToolRenderer({
       <XStack alignItems="center" gap="$2">
         <Globe size={16} color="$color11" />
         <Text fontSize="$3" color="$color11" flex={1} numberOfLines={1}>
-          Fetch {input.url ? new URL(input.url).hostname : 'web content'}
+          Fetch {url ? new URL(url).hostname : 'web content'}
         </Text>
       </XStack>
     )
@@ -61,7 +84,7 @@ export function WebFetchToolRenderer({
               icon={ExternalLink}
               onPress={() => {
                 // Note: In a real app, you'd use Linking.openURL
-                console.log('Open URL:', input.url)
+                console.log('Open URL:', url)
               }}
               pressStyle={{ backgroundColor: '$backgroundPress' }}
             />
@@ -83,11 +106,11 @@ export function WebFetchToolRenderer({
           borderRadius="$2"
           numberOfLines={2}
         >
-          {input.url || 'No URL provided'}
+          {url || 'No URL provided'}
         </Text>
       </YStack>
 
-      {input.format && (
+      {format && (
         <YStack gap="$2">
           <Text fontSize="$2" color="$color11">
             Format:
@@ -99,24 +122,24 @@ export function WebFetchToolRenderer({
             padding="$2"
             borderRadius="$2"
           >
-            {input.format}
+            {format}
           </Text>
         </YStack>
       )}
 
-      {currentStatus === 'pending' && (
+      {part.state.status === 'pending' && (
         <Text fontSize="$3" color="$color11">
           Preparing to fetch content...
         </Text>
       )}
 
-      {currentStatus === 'running' && (
+      {part.state.status === 'running' && (
         <Text fontSize="$3" color="$color11">
           Fetching content...
         </Text>
       )}
 
-      {currentStatus === 'completed' && tool.state.output && (
+      {part.state.status === 'completed' && part.state.output && (
         <YStack gap="$2">
           <XStack alignItems="center" justifyContent="space-between">
             <Text fontSize="$2" color="$color11">
@@ -137,15 +160,15 @@ export function WebFetchToolRenderer({
             borderRadius="$2"
           >
             <Text fontSize="$2" fontFamily="$mono" color="$color12">
-              {tool.state.output}
+              {part.state.output}
             </Text>
           </ScrollView>
         </YStack>
       )}
 
-      {currentStatus === 'error' && (
+      {part.state.status === 'error' && (
         <Text fontSize="$3" color="$red11">
-          Failed to fetch: {tool.state.error || 'Unknown error'}
+          Failed to fetch: {part.state.error || 'Unknown error'}
         </Text>
       )}
     </YStack>

@@ -2,30 +2,51 @@ import React from 'react'
 import { Search, Copy, FileText } from '@tamagui/lucide-icons'
 import { YStack, XStack, Text, Button, ScrollView } from 'tamagui'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
-import type { ToolPartRendererProps } from '../../../types/tools'
+import type { ToolPart } from '@opencode-ai/sdk'
 
-interface GrepToolRendererProps extends ToolPartRendererProps {
+interface GrepToolRendererProps {
+  part: ToolPart
   isExpanded: boolean
+  onCopy?: (content: string) => void
 }
 
-export function GrepToolRenderer({
-  tool,
-  status,
-  isExpanded,
-}: GrepToolRendererProps) {
+export function GrepToolRenderer({ part, isExpanded }: GrepToolRendererProps) {
   const { copyToClipboard } = useCopyToClipboard()
-  const input = tool.state.input || {}
-  const currentStatus = status || tool.state.status
 
-  const handleCopyPattern = () => {
-    if (input.pattern) {
-      copyToClipboard(input.pattern)
+  // Get grep data from input when available
+  const getGrepData = () => {
+    switch (part.state.status) {
+      case 'completed':
+      case 'running':
+      case 'error':
+        const input = part.state.input as {
+          pattern?: string
+          include?: string
+          path?: string
+        }
+        return {
+          pattern: input.pattern || 'pattern',
+          include: input.include,
+          path: input.path,
+        }
+      default:
+        return {
+          pattern: 'pattern',
+          include: undefined,
+          path: undefined,
+        }
     }
   }
 
+  const { pattern, include, path } = getGrepData()
+
+  const handleCopyPattern = () => {
+    copyToClipboard(pattern)
+  }
+
   const handleCopyResults = () => {
-    if (tool.state.output) {
-      copyToClipboard(tool.state.output)
+    if (part.state.status === 'completed') {
+      copyToClipboard(part.state.output)
     }
   }
 
@@ -40,14 +61,16 @@ export function GrepToolRenderer({
     return lines.map(line => line.trim())
   }
 
-  const results = parseResults(tool.state.output || '')
+  const results = parseResults(
+    part.state.status === 'completed' ? part.state.output : ''
+  )
 
   if (!isExpanded) {
     return (
       <XStack alignItems="center" gap="$2">
         <Search size={16} color="$color11" />
         <Text fontSize="$3" color="$color11" flex={1} numberOfLines={1}>
-          Search &ldquo;{input.pattern}&rdquo; ({results.length} results)
+          Search &ldquo;{pattern}&rdquo; ({results.length} results)
         </Text>
       </XStack>
     )
@@ -83,11 +106,11 @@ export function GrepToolRenderer({
           padding="$2"
           borderRadius="$2"
         >
-          {input.pattern || 'No pattern'}
+          {pattern}
         </Text>
       </YStack>
 
-      {input.include && (
+      {include && (
         <YStack gap="$2">
           <Text fontSize="$2" color="$color11">
             Include Pattern:
@@ -100,12 +123,12 @@ export function GrepToolRenderer({
             padding="$2"
             borderRadius="$2"
           >
-            {input.include}
+            {include}
           </Text>
         </YStack>
       )}
 
-      {input.path && (
+      {path && (
         <YStack gap="$2">
           <Text fontSize="$2" color="$color11">
             Search Path:
@@ -118,24 +141,24 @@ export function GrepToolRenderer({
             padding="$2"
             borderRadius="$2"
           >
-            {input.path}
+            {path}
           </Text>
         </YStack>
       )}
 
-      {currentStatus === 'pending' && (
+      {part.state.status === 'pending' && (
         <Text fontSize="$3" color="$color11">
           Preparing to search...
         </Text>
       )}
 
-      {currentStatus === 'running' && (
+      {part.state.status === 'running' && (
         <Text fontSize="$3" color="$color11">
           Searching files...
         </Text>
       )}
 
-      {currentStatus === 'completed' && results.length > 0 && (
+      {part.state.status === 'completed' && results.length > 0 && (
         <YStack gap="$2">
           <XStack alignItems="center" justifyContent="space-between">
             <Text fontSize="$2" color="$color11">
@@ -175,15 +198,15 @@ export function GrepToolRenderer({
         </YStack>
       )}
 
-      {currentStatus === 'completed' && results.length === 0 && (
+      {part.state.status === 'completed' && results.length === 0 && (
         <Text fontSize="$3" color="$color11">
           No matches found
         </Text>
       )}
 
-      {currentStatus === 'error' && (
+      {part.state.status === 'error' && (
         <Text fontSize="$3" color="$red11">
-          Search failed: {tool.state.error || 'Unknown error'}
+          Search failed: {part.state.error || 'Unknown error'}
         </Text>
       )}
     </YStack>

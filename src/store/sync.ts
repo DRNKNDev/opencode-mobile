@@ -1,11 +1,11 @@
 import { openCodeService } from '../services/opencode'
-import type { StreamResponse } from '../services/sse'
-import type { Message, MessagePart } from '../services/types'
+import type { Event, SessionMessageResponse } from '@opencode-ai/sdk'
+import { batch } from '@legendapp/state'
 import { actions } from './actions'
 import { store$ } from './index'
 
 class SyncService {
-  private eventSource: AsyncGenerator<StreamResponse> | null = null
+  private eventStream: AsyncGenerator<Event> | null = null
   private isListening = false
   private retryCount = 0
   private eventDependencies: Map<string, Promise<void>> = new Map()
@@ -17,9 +17,9 @@ class SyncService {
 
     try {
       this.isListening = true
-      this.eventSource = openCodeService.streamEvents()
+      this.eventStream = openCodeService.streamEvents()
 
-      for await (const event of this.eventSource) {
+      for await (const event of this.eventStream) {
         await this.handleEvent(event)
       }
     } catch (error) {
@@ -36,22 +36,20 @@ class SyncService {
     }
   }
 
-  // Add retry logic
   private getRetryDelay(): number {
     const delay = Math.min(1000 * Math.pow(2, this.retryCount), 16000) // Max 16s
     this.retryCount = Math.min(this.retryCount + 1, 5)
     return delay
   }
 
-  // Update stopSync to reset retry count
   stopSync() {
     this.isListening = false
-    this.eventSource = null
+    this.eventStream = null
     this.retryCount = 0
     this.eventDependencies.clear()
   }
 
-  private async handleEvent(event: StreamResponse) {
+  private async handleEvent(event: Event) {
     switch (event.type) {
       case 'message.updated':
         if ('properties' in event && event.properties.info) {
@@ -90,20 +88,22 @@ class SyncService {
         break
 
       case 'session.idle':
-        // Mark all streaming messages as complete
+        // Mark all streaming messages as complete using batching
         const currentSessionId = store$.sessions.current.get()
-        if (currentSessionId) {
-          const messages =
-            store$.messages.bySessionId[currentSessionId].get() || []
-          const updatedMessages = messages.map(msg =>
-            msg.isStreaming ? { ...msg, isStreaming: false } : msg
-          )
-          store$.messages.bySessionId[currentSessionId].set(updatedMessages)
-        }
+        batch(() => {
+          if (currentSessionId) {
+            const messages =
+              store$.messages.bySessionId[currentSessionId].get() || []
+            const updatedMessages = messages.map(msg => ({
+              ...msg,
+              // Remove any streaming indicators from message info if they exist
+            }))
+            store$.messages.bySessionId[currentSessionId].set(updatedMessages)
+          }
 
-        // Streaming is complete
-
-        store$.messages.isSending.set(false)
+          // Streaming is complete
+          store$.messages.isSending.set(false)
+        })
         break
 
       case 'message.removed':
@@ -112,7 +112,7 @@ class SyncService {
           const currentMessages =
             store$.messages.bySessionId[sessionID].get() || []
           store$.messages.bySessionId[sessionID].set(
-            currentMessages.filter(m => m.id !== messageID)
+            currentMessages.filter(m => m.info.id !== messageID)
           )
         }
         break
@@ -131,7 +131,6 @@ class SyncService {
       case 'file.watcher.updated':
       case 'permission.updated':
       case 'installation.updated':
-      case 'lsp.client.diagnostics':
         console.log(`Received ${event.type} event - not handled in UI`)
         break
 
@@ -145,137 +144,97 @@ class SyncService {
     const messageId = messageInfo.id
 
     const currentMessages = store$.messages.bySessionId[sessionId].get() || []
-    const existingMessage = currentMessages.find(m => m.id === messageId)
+    const existingMessage = currentMessages.find(m => m.info.id === messageId)
 
-    let message: Message
+    let message: SessionMessageResponse
 
     if (existingMessage) {
-      // Update existing streaming message with proper server timestamp
+      // Update existing message with server info
       message = {
         ...existingMessage,
-        timestamp: new Date(messageInfo.time.created),
-        isStreaming: false, // Mark as completed
+        info: {
+          ...existingMessage.info,
+          time: messageInfo.time,
+        },
       }
     } else {
-      // Create new message (for non-streaming messages)
+      // Create new message
       message = {
-        id: messageInfo.id,
-        sessionId: messageInfo.sessionID,
-        role: messageInfo.role,
-        content: '',
-        timestamp: new Date(messageInfo.time.created),
-        status: 'sent',
-        isStreaming: false,
+        info: messageInfo,
+        parts: [],
       }
     }
 
     // Add or update the message in the store
-    actions.messages.addMessage(message)
-  }
-  private handleTextPart(messageId: string, sessionId: string, part: any) {
-    // Create text part using same pattern as tool parts
-    const textPart: MessagePart = {
-      type: 'text',
-      content: part.text,
-      synthetic: part.synthetic,
-      id: part.id || `text-${Date.now()}`,
-    }
-
-    // Use existing addPartToMessage logic (same as tool parts)
-    this.addPartToMessage(messageId, sessionId, textPart)
+    actions.messages.addMessage(sessionId, message)
   }
 
-  private handleToolPart(messageId: string, sessionId: string, part: any) {
-    console.log('Tool part received:', {
-      tool: part.tool,
-      callID: part.callID,
-      status: part.state?.status,
-      messageId,
-      sessionId,
+  private handleMessagePartUpdate(part: any) {
+    const sessionId = part.sessionID
+    const messageId = part.messageID
+
+    // Batch all part updates for better performance
+    batch(() => {
+      // STEP 1: Ensure message exists for streaming parts
+      this.ensureMessageExists(
+        messageId,
+        sessionId,
+        part.time?.start || part.time?.created
+      )
+
+      // STEP 2: Handle only text and tool parts that we can render
+      switch (part.type) {
+        case 'text':
+          this.addPartToMessage(messageId, sessionId, part)
+          break
+        case 'tool':
+          this.addPartToMessage(messageId, sessionId, part)
+          break
+        case 'reasoning':
+          // Add reasoning parts too - they may be useful
+          this.addPartToMessage(messageId, sessionId, part)
+          break
+        case 'file':
+          // Add file parts
+          this.addPartToMessage(messageId, sessionId, part)
+          break
+        default:
+          // Ignore step-start, step-finish, and other types
+          console.log(`Ignoring part type: ${part.type}`)
+      }
     })
-
-    const toolPart: MessagePart = {
-      type: 'tool_execution',
-      content: part.state?.title || `${part.tool} execution`,
-      toolName: part.tool,
-      callID: part.callID,
-      id: part.id || part.callID || `tool-${part.tool}-${Date.now()}`,
-      toolResult: {
-        status: part.state?.status || 'pending',
-        input: part.state?.input || {},
-        output: part.state?.output || '',
-        error: part.state?.error,
-        time: part.state?.time,
-        title: part.state?.title,
-        metadata: part.state?.metadata,
-      },
-    }
-
-    this.addPartToMessage(messageId, sessionId, toolPart)
   }
 
-  private addPartToMessage(
-    messageId: string,
-    sessionId: string,
-    newPart: MessagePart
-  ) {
+  private addPartToMessage(messageId: string, sessionId: string, newPart: any) {
     const currentMessages = store$.messages.bySessionId[sessionId].get() || []
-    const messageIndex = currentMessages.findIndex(m => m.id === messageId)
+    const messageIndex = currentMessages.findIndex(m => m.info.id === messageId)
 
     if (messageIndex >= 0) {
       const currentMessage = currentMessages[messageIndex]
 
-      // Find existing part by ID first, then fallback to type-based matching
+      // Find existing part by ID
       const existingPartIndex =
-        currentMessage.parts?.findIndex(p => {
-          // Match by ID if both parts have IDs
-          if (p.id && newPart.id) {
-            return p.id === newPart.id
-          }
-          // Fallback to type-based matching for compatibility
-          if (
-            p.type === 'tool_execution' &&
-            newPart.type === 'tool_execution'
-          ) {
-            return p.callID === newPart.callID
-          }
-          if (p.type === 'text' && newPart.type === 'text') {
-            return !p.synthetic && !newPart.synthetic // Match non-synthetic text parts
-          }
-          return false
-        }) ?? -1
+        currentMessage.parts?.findIndex(p => p.id === newPart.id) ?? -1
 
-      let updatedParts: MessagePart[]
+      let updatedParts: any[]
       if (existingPartIndex >= 0) {
         // UPDATE existing part (status transition or content update)
         updatedParts = [...(currentMessage.parts || [])]
-        updatedParts[existingPartIndex] = {
-          ...updatedParts[existingPartIndex],
-          ...newPart,
-          toolResult: {
-            ...updatedParts[existingPartIndex].toolResult,
-            ...newPart.toolResult,
-          },
-        }
-        console.log(
-          `Updated part ${newPart.id || newPart.callID}: ${newPart.toolResult?.status || 'text'}`
-        )
+        updatedParts[existingPartIndex] = newPart
+        console.log(`Updated part ${newPart.id}: ${newPart.type}`)
       } else {
         // CREATE new part (first time)
         updatedParts = [...(currentMessage.parts || []), newPart]
-        console.log(
-          `Created part ${newPart.id || newPart.callID}: ${newPart.toolResult?.status || 'text'}`
-        )
+        console.log(`Created part ${newPart.id}: ${newPart.type}`)
       }
 
-      const updatedMessage = {
+      const updatedMessage: SessionMessageResponse = {
         ...currentMessage,
         parts: updatedParts,
-        isStreaming: true,
       }
 
       store$.messages.bySessionId[sessionId].set(messages =>
-        messages.map(m => (m.id === messageId ? updatedMessage : m))
+        messages.map(m => (m.info.id === messageId ? updatedMessage : m))
       )
     } else {
       // Message doesn't exist yet - this shouldn't happen with proper event ordering
@@ -289,43 +248,22 @@ class SyncService {
     serverTimestamp?: number
   ) {
     const currentMessages = store$.messages.bySessionId[sessionId].get() || []
-    const existingMessage = currentMessages.find(m => m.id === messageId)
+    const existingMessage = currentMessages.find(m => m.info.id === messageId)
 
     if (!existingMessage) {
-      const newMessage: Message = {
-        id: messageId,
-        sessionId: sessionId,
-        role: 'assistant',
-        content: '',
+      // Create a minimal message structure that will be populated by parts
+      const newMessage: SessionMessageResponse = {
+        info: {
+          id: messageId,
+          sessionID: sessionId,
+          role: 'assistant' as const,
+          time: {
+            created: serverTimestamp || Date.now() / 1000,
+          },
+        } as any, // Use any to bypass strict typing for now
         parts: [],
-        timestamp: serverTimestamp
-          ? new Date(serverTimestamp * 1000)
-          : new Date(), // Use current timestamp
-        status: 'sent',
-        isStreaming: true,
       }
-      actions.messages.addMessage(newMessage)
-    }
-  }
-  private handleMessagePartUpdate(part: any) {
-    const sessionId = part.sessionID
-    const messageId = part.messageID
-
-    // STEP 1: Ensure message exists for streaming parts (use server timestamp if available)
-    const serverTimestamp = part.time?.start || part.time?.created
-    this.ensureMessageExists(messageId, sessionId, serverTimestamp)
-
-    // STEP 2: Handle only text and tool parts
-    switch (part.type) {
-      case 'text':
-        this.handleTextPart(messageId, sessionId, part)
-        break
-      case 'tool':
-        this.handleToolPart(messageId, sessionId, part)
-        break
-      default:
-        // Ignore step-start, step-finish, and unknown types
-        console.log(`Ignoring part type: ${part.type}`)
+      actions.messages.addMessage(sessionId, newMessage)
     }
   }
 
