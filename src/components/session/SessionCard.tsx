@@ -2,25 +2,18 @@ import type { Session } from '@opencode-ai/sdk'
 import { ChevronRight } from '@tamagui/lucide-icons'
 import React from 'react'
 import { Card, Text, XStack, YStack } from 'tamagui'
+import { formatContextualDate } from '../../utils/dateFormatting'
+import type { TimePeriod } from '../../utils/sessionGrouping'
 
 export interface SessionCardProps {
   session: Session
   onPress: () => void
+  groupType?: TimePeriod
 }
 
-export function SessionCard({ session, onPress }: SessionCardProps) {
+export function SessionCard({ session, onPress, groupType }: SessionCardProps) {
   const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp) // Timestamp already in milliseconds
-    const now = new Date()
-    const diffInMs = now.getTime() - date.getTime()
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60))
-    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
-
-    if (diffInMinutes < 1) return 'Just now'
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
-    if (diffInHours < 24) return `${diffInHours}h ago`
-    if (diffInHours < 48) return 'Yesterday'
-    return date.toLocaleDateString()
+    return formatContextualDate(timestamp, groupType)
   }
 
   return (
