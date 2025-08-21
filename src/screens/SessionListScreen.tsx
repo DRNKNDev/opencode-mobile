@@ -10,6 +10,7 @@ import { Text, XStack, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { SessionCard } from '../components/session/SessionCard'
 import { Header } from '../components/ui/Header'
+import { SectionHeader } from '../components/ui/SectionHeader'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
 import {
@@ -19,8 +20,9 @@ import {
   projectName,
   selectedAgent,
   selectedModel,
-  sessionsSortedByTime,
+  sessionsWithHeaders,
 } from '../store/computed'
+import type { ListItem, SessionGroup } from '../utils/sessionGrouping'
 
 export default function SessionListScreen() {
   const router = useRouter()
@@ -32,7 +34,7 @@ export default function SessionListScreen() {
   const connected = useSelector(isConnected)
   const model = useSelector(selectedModel)
   const currentAgent = useSelector(selectedAgent)
-  const sessions = useSelector(sessionsSortedByTime)
+  const listItems = useSelector(sessionsWithHeaders)
   const currentAppInfo = useSelector(appInfo)
   const isGitRepository = useSelector(isGitRepo)
   const currentProjectName = useSelector(projectName)
@@ -126,9 +128,23 @@ export default function SessionListScreen() {
     }
   }
 
-  const renderSession = ({ item }: { item: Session }) => (
-    <SessionCard session={item} onPress={() => openSession(item)} />
-  )
+  const renderItem = ({ item }: { item: ListItem }) => {
+    if (item.type === 'header') {
+      const group = item.data as SessionGroup
+      return <SectionHeader title={group.title} isTablet={isTablet} />
+    } else {
+      const session = item.data as Session
+      return (
+        <SessionCard
+          session={session}
+          onPress={() => openSession(session)}
+          groupType={item.groupType}
+        />
+      )
+    }
+  }
+
+  const keyExtractor = (item: ListItem) => item.key
 
   const renderEmptyState = () => (
     <YStack
@@ -219,13 +235,13 @@ export default function SessionListScreen() {
         alignSelf="center"
         width="100%"
       >
-        {sessions.length === 0 ? (
+        {listItems.length === 0 ? (
           renderEmptyState()
         ) : (
           <LegendList
-            data={sessions}
-            renderItem={renderSession}
-            keyExtractor={item => item.id}
+            data={listItems}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
             showsVerticalScrollIndicator={false}
             recycleItems
             refreshControl={
