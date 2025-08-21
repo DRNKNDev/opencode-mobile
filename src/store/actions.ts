@@ -299,6 +299,9 @@ export const actions = {
           // Attempt to connect to the stored server URL
           await actions.connection.connect(serverUrl)
 
+          // Fetch app info after successful connection
+          await actions.connection.fetchAppInfo()
+
           // Load sessions and models in the background after successful connection
           setTimeout(() => {
             // Only call loadSessions if cache is stale
@@ -402,6 +405,30 @@ export const actions = {
       if (timeout) {
         clearTimeout(timeout)
         store$.connection.reconnectTimeout.set(null)
+      }
+    },
+
+    fetchAppInfo: async () => {
+      if (
+        store$.connection.status.get() !== 'connected' ||
+        !openCodeService.isInitialized()
+      ) {
+        debug.warn('Cannot fetch app info: not connected')
+        return
+      }
+
+      try {
+        const appInfo = await openCodeService.getAppInfo()
+        store$.connection.appInfo.set(appInfo)
+        debug.info('App info fetched successfully:', {
+          hostname: appInfo.hostname,
+          git: appInfo.git,
+          root: appInfo.path.root,
+        })
+      } catch (error) {
+        debug.warn('Failed to fetch app info:', error)
+        // Don't throw error to avoid blocking app initialization
+        store$.connection.appInfo.set(null)
       }
     },
   },

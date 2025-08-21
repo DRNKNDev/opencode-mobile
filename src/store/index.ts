@@ -26,6 +26,20 @@ export interface StoreState {
     retryCount: number
     healthCheckInterval: any
     reconnectTimeout: any
+    appInfo: {
+      hostname: string
+      git: boolean
+      path: {
+        config: string
+        data: string
+        root: string
+        cwd: string
+        state: string
+      }
+      time: {
+        initialized?: number
+      }
+    } | null
   }
 
   theme: 'tokyonight-dark' | 'tokyonight-light'
@@ -84,6 +98,7 @@ export const store$ = observable<StoreState>({
     retryCount: 0,
     healthCheckInterval: null,
     reconnectTimeout: null,
+    appInfo: null,
   },
 
   theme: 'tokyonight-dark',
