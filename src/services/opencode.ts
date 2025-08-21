@@ -33,18 +33,6 @@ export interface OpenCodeConfig {
   maxRetries?: number
 }
 
-export interface CreateSessionRequest {
-  title?: string
-}
-
-export interface SendMessageRequest {
-  sessionId: string
-  content: string
-  modelId: string
-  providerId: string
-  agent?: string
-}
-
 class OpenCodeService {
   private client: ReturnType<typeof createOpencodeClient> | null = null
   private config: OpenCodeConfig | null = null
@@ -147,13 +135,15 @@ class OpenCodeService {
     }
   }
 
-  async createSession(): Promise<Session> {
+  async createSession(title?: string): Promise<Session> {
     if (!this.client) {
       throw new Error('Client not initialized')
     }
 
     try {
-      const response = await this.client.session.create()
+      const response = await this.client.session.create({
+        body: title ? { title } : undefined,
+      })
       if ('error' in response && response.error) {
         throw new Error('Failed to create session')
       }
@@ -209,22 +199,28 @@ class OpenCodeService {
     }
   }
 
-  async sendMessage(request: SendMessageRequest): Promise<void> {
+  async sendMessage(
+    sessionId: string,
+    content: string,
+    modelId: string,
+    providerId: string,
+    agent?: string
+  ): Promise<void> {
     if (!this.client) {
       throw new Error('Client not initialized')
     }
 
     try {
       const response = await this.client.session.chat({
-        path: { id: request.sessionId },
+        path: { id: sessionId },
         body: {
-          modelID: request.modelId,
-          providerID: request.providerId,
-          agent: request.agent,
+          modelID: modelId,
+          providerID: providerId,
+          agent: agent,
           parts: [
             {
               type: 'text',
-              text: request.content,
+              text: content,
             } as TextPartInput,
           ],
         },
