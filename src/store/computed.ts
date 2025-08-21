@@ -7,6 +7,12 @@ import type {
   SessionMessageResponse,
 } from '@opencode-ai/sdk'
 import type { ConnectionStatus } from '../services/types'
+import {
+  groupSessionsByTime,
+  flattenGroupsForList,
+  type SessionGroup,
+  type ListItem,
+} from '../utils/sessionGrouping'
 
 // Connection computed values
 export const isConnected = computed(
@@ -157,6 +163,18 @@ export const sessionsSortedByTime = computed((): Session[] => {
   return [...sessions].sort((a, b) => b.time.updated - a.time.updated)
 })
 
+// Sessions grouped by time periods
+export const sessionsGroupedByTime = computed((): SessionGroup[] => {
+  const sessions = sessionsSortedByTime.get()
+  return groupSessionsByTime(sessions)
+})
+
+// Flattened list of sessions with section headers for LegendList
+export const sessionsWithHeaders = computed((): ListItem[] => {
+  const groups = sessionsGroupedByTime.get()
+  return flattenGroupsForList(groups)
+})
+
 // Available providers
 export const availableProviders = computed((): string[] => {
   const providers = store$.models.providers.get()
@@ -217,6 +235,8 @@ export const computed$ = {
   lastMessage,
   isSendingMessage,
   sessionsSortedByTime,
+  sessionsGroupedByTime,
+  sessionsWithHeaders,
   availableProviders,
   connectionStatus,
   appInfo,
