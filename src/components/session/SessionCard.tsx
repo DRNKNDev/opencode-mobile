@@ -1,23 +1,14 @@
-import { ChevronRight, Share2, Trash2 } from '@tamagui/lucide-icons'
-import React from 'react'
-import { Button, Card, Text, XStack, YStack } from 'tamagui'
 import type { Session } from '@opencode-ai/sdk'
+import { ChevronRight } from '@tamagui/lucide-icons'
+import React from 'react'
+import { Card, Text, XStack, YStack } from 'tamagui'
 
 export interface SessionCardProps {
   session: Session
   onPress: () => void
-  onShare?: () => void
-  onDelete?: () => void
-  isDeleting?: boolean
 }
 
-export function SessionCard({
-  session,
-  onPress,
-  onShare,
-  onDelete,
-  isDeleting,
-}: SessionCardProps) {
+export function SessionCard({ session, onPress }: SessionCardProps) {
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp) // Timestamp already in milliseconds
     const now = new Date()
@@ -32,20 +23,10 @@ export function SessionCard({
     return date.toLocaleDateString()
   }
 
-  // Get last message preview
-  const getLastMessagePreview = () => {
-    // SDK doesn't provide lastMessage directly
-    return 'Click to view messages'
-  }
-
   return (
     <Card
-      padding="$4"
+      padding="$3"
       marginBottom="$2"
-      backgroundColor="$background"
-      borderWidth={0.5}
-      borderColor="$borderColor"
-      borderRadius="$2"
       pressStyle={{
         backgroundColor: '$backgroundPress',
         borderColor: '$blue10',
@@ -62,11 +43,6 @@ export function SessionCard({
             {session.title}
           </Text>
 
-          {/* Last Message Preview */}
-          <Text color="$color11" fontSize="$3" numberOfLines={1}>
-            {getLastMessagePreview()}
-          </Text>
-
           {/* Updated Time */}
           <XStack alignItems="center" gap="$2" marginTop="$1">
             <Text color="$color11" fontSize="$2">
@@ -77,34 +53,6 @@ export function SessionCard({
 
         {/* Right Side Actions */}
         <XStack alignItems="center" gap="$2">
-          {/* Delete Button */}
-          {onDelete && (
-            <Button
-              size="$3"
-              chromeless
-              icon={Trash2}
-              disabled={isDeleting}
-              onPress={e => {
-                e.stopPropagation()
-                onDelete()
-              }}
-              theme="red"
-            />
-          )}
-
-          {/* Share Button */}
-          {onShare && (
-            <Button
-              size="$3"
-              chromeless
-              icon={Share2}
-              onPress={e => {
-                e.stopPropagation()
-                onShare()
-              }}
-            />
-          )}
-
           {/* Chevron Right */}
           <ChevronRight size={16} color="$color11" />
         </XStack>
