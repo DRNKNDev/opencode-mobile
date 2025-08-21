@@ -163,10 +163,7 @@ export function ToolExecutionCard({
         alignItems="center"
         justifyContent="space-between"
         padding="$3"
-        backgroundColor="$gray1"
-        borderBottomWidth={0.5}
-        borderBottomColor="$borderColor"
-        pressStyle={{ backgroundColor: '$gray2' }}
+        pressStyle={{ backgroundColor: '$backgroundPress' }}
         cursor="pointer"
         onPress={() => onToggleExpanded(part.id)}
       >

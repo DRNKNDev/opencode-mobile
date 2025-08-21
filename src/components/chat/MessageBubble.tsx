@@ -1,7 +1,7 @@
+import type { Part, SessionMessageResponse, ToolPart } from '@opencode-ai/sdk'
 import React, { useState } from 'react'
 import { Card, Text, XStack, YStack } from 'tamagui'
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
-import type { SessionMessageResponse, Part, ToolPart } from '@opencode-ai/sdk'
 import { debug } from '../../utils/debug'
 import { ToolExecutionCard } from '../tools/ToolExecutionCard'
 import { AttachmentRenderer } from './AttachmentRenderer'
@@ -52,14 +52,6 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   }
 
   const renderMessagePart = (part: Part, index: number) => {
-    debug.log('MessageBubble renderMessagePart:', {
-      index,
-      messageId: message.info.id,
-      partType: part.type,
-      partId: part.id,
-      fullPart: part,
-    })
-
     switch (part.type) {
       case 'text':
         const textContent = 'text' in part ? part.text : ''
@@ -84,15 +76,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         )
 
       case 'tool':
-        debug.log('Tool part detected:', {
-          tool: 'tool' in part ? part.tool : 'unknown',
-          callId: 'callID' in part ? part.callID : 'unknown',
-          state: 'state' in part ? part.state : null,
-        })
-
         // Use SDK ToolPart directly
         const toolPart = part as ToolPart
-        debug.log('SDK ToolPart for ToolExecutionCard:', toolPart)
 
         return (
           <ToolExecutionCard
@@ -103,7 +88,6 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             onCopy={copyToClipboard}
           />
         )
-        return null
 
       case 'file':
         return <AttachmentRenderer key={index} files={[part]} />

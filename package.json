@@ -16,7 +16,7 @@
     "@expo/vector-icons": "^14.1.0",
     "@legendapp/list": "^1.1.4",
     "@legendapp/state": "^3.0.0-beta.15",
-    "@opencode-ai/sdk": "^0.5.5",
+    "@opencode-ai/sdk": "^0.5.12",
     "@react-native-clipboard/clipboard": "1.16.3",
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",

@@ -1,19 +1,22 @@
 import { LegendList } from '@legendapp/list'
 import { useSelector } from '@legendapp/state/react'
 import type { Session } from '@opencode-ai/sdk'
-import { MessageCircle } from '@tamagui/lucide-icons'
+import { Folder, FolderGit2, MessageCircle } from '@tamagui/lucide-icons'
 import { useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
 import { RefreshControl, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Text, YStack } from 'tamagui'
+import { Text, XStack, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { SessionCard } from '../components/session/SessionCard'
 import { Header } from '../components/ui/Header'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
 import {
+  appInfo,
   isConnected,
+  isGitRepo,
+  projectName,
   selectedAgent,
   selectedModel,
   sessionsSortedByTime,
@@ -30,12 +33,14 @@ export default function SessionListScreen() {
   const model = useSelector(selectedModel)
   const currentAgent = useSelector(selectedAgent)
   const sessions = useSelector(sessionsSortedByTime)
+  const currentAppInfo = useSelector(appInfo)
+  const isGitRepository = useSelector(isGitRepo)
+  const currentProjectName = useSelector(projectName)
   const sessionState = useSelector(() => ({
     isLoading: store$.sessions.isLoading.get(),
     isCreating: store$.sessions.isCreating.get(),
   }))
   const { isLoading, isCreating } = sessionState
-  const isDeleting = false // TODO: Add per-session deletion state
   const isRefreshing = isLoading
 
   const isTablet = width > 768
@@ -89,21 +94,6 @@ export default function SessionListScreen() {
     router.push(`/chat/${session.id}`)
   }
 
-  const handleDeleteSession = async (session: Session) => {
-    try {
-      await actions.sessions.deleteSession(session.id)
-      // TODO: Show success toast
-    } catch (error) {
-      console.error('Failed to delete session:', error)
-      // TODO: Show error toast
-    }
-  }
-
-  const shareSession = (session: Session) => {
-    // TODO: Implement session sharing functionality
-    console.log('Sharing session:', session.id)
-  }
-
   const handleModelSelect = (modelId: string) => {
     // Find which provider owns this model
     const providers = store$.models.providers.get()
@@ -137,13 +127,7 @@ export default function SessionListScreen() {
   }
 
   const renderSession = ({ item }: { item: Session }) => (
-    <SessionCard
-      session={item}
-      onPress={() => openSession(item)}
-      onShare={() => shareSession(item)}
-      onDelete={() => handleDeleteSession(item)}
-      isDeleting={isDeleting}
-    />
+    <SessionCard session={item} onPress={() => openSession(item)} />
   )
 
   const renderEmptyState = () => (
@@ -176,20 +160,44 @@ export default function SessionListScreen() {
       flex={1}
       backgroundColor="$background"
       paddingTop={insets.top}
-      paddingBottom={insets.bottom}
-      paddingLeft={insets.left}
-      paddingRight={insets.right}
+      paddingLeft={insets.left + (isTablet ? 24 : 16)}
+      paddingRight={insets.right + (isTablet ? 24 : 16)}
+      paddingBottom={isTablet ? 24 : 16}
     >
       {/* Header */}
       <Header title="Sessions" connected={connected} showBorder={true} />
 
       {/* Input Section */}
       <YStack
-        padding={isTablet ? '$6' : '$4'}
+        padding="$2"
+        margin="$4"
         maxWidth={isTablet ? 1200 : undefined}
         alignSelf="center"
         width="100%"
+        backgroundColor="$backgroundHover"
+        borderWidth={0.5}
+        borderColor="$borderColor"
+        borderRadius="$6"
       >
+        {/* Project info display */}
+        {currentAppInfo && (
+          <XStack
+            alignItems="center"
+            gap="$2"
+            paddingHorizontal="$3"
+            paddingVertical="$2"
+          >
+            {isGitRepository ? (
+              <FolderGit2 size={16} color="$color11" />
+            ) : (
+              <Folder size={16} color="$color11" />
+            )}
+            <Text fontSize="$2" color="$color11" numberOfLines={1}>
+              {currentProjectName}
+            </Text>
+          </XStack>
+        )}
+
         {/* Always-visible input */}
         <InputBar
           value={newSessionInput}
@@ -201,15 +209,12 @@ export default function SessionListScreen() {
           currentModel={model?.id}
           disabled={!connected || isCreating}
           isStreaming={isCreating}
-          size="$4"
         />
       </YStack>
 
       {/* Session List */}
       <YStack
         flex={1}
-        padding={isTablet ? '$6' : '$4'}
-        paddingTop="$0"
         maxWidth={isTablet ? 1200 : undefined}
         alignSelf="center"
         width="100%"

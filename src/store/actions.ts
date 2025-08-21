@@ -4,6 +4,20 @@ import { openCodeService, type OpenCodeConfig } from '../services/opencode'
 import { debug } from '../utils/debug'
 import { store$ } from './index'
 
+// Cache TTL constants
+const CACHE_TTL = {
+  sessions: 5 * 60 * 1000, // 5 minutes
+  providers: 10 * 60 * 1000, // 10 minutes
+  agents: 10 * 60 * 1000, // 10 minutes
+  messages: 2 * 60 * 1000, // 2 minutes
+}
+
+// Simple helper to check if cache is valid
+const isCacheValid = (lastFetched: number | null, ttl: number): boolean => {
+  if (!lastFetched) return false
+  return Date.now() - lastFetched < ttl
+}
+
 // Simple helper for error handling
 const setActionError = (
   error: unknown,
@@ -100,6 +114,18 @@ const ensureModelSelected = (
 
 // Helper to avoid duplicating agent selection logic
 const ensureAgentSelected = async (): Promise<Agent[]> => {
+  // Check if agents exist and cache is valid
+  const existingAgents = store$.agents.available.get()
+  const lastFetched = store$.cache.agentsLastFetched.get()
+
+  if (
+    existingAgents.length > 0 &&
+    isCacheValid(lastFetched, CACHE_TTL.agents)
+  ) {
+    debug.info('Using cached agents, skipping API call')
+    return existingAgents
+  }
+
   let agents: Agent[]
 
   try {
@@ -110,6 +136,7 @@ const ensureAgentSelected = async (): Promise<Agent[]> => {
   }
 
   store$.agents.available.set(agents)
+  store$.cache.agentsLastFetched.set(Date.now())
 
   // Auto-select a default agent if none is currently selected
   const currentSelected = store$.agents.selected.get()
@@ -160,10 +187,6 @@ export const actions = {
           throw new Error(healthCheck.error || 'Health check failed')
         }
 
-        // Fetch providers and agents
-        const providersResponse = await openCodeService.getProviders()
-        const { providers, default: defaults } = providersResponse
-
         // Fetch and setup agents
         await ensureAgentSelected()
 
@@ -171,11 +194,6 @@ export const actions = {
         store$.connection.status.set('connected')
         store$.connection.lastConnected.set(new Date())
         store$.connection.retryCount.set(0)
-        store$.models.providers.set(providers)
-        store$.models.defaults.set(defaults || {})
-
-        // Auto-select a default model if none is currently selected
-        ensureModelSelected(providers, defaults || {})
 
         // Start health monitoring
         actions.connection.startHealthMonitoring()
@@ -228,6 +246,18 @@ export const actions = {
         throw new Error('Not connected to server')
       }
 
+      // Check if providers exist and cache is valid
+      const existingProviders = store$.models.providers.get()
+      const lastFetched = store$.cache.providersLastFetched.get()
+
+      if (
+        existingProviders.length > 0 &&
+        isCacheValid(lastFetched, CACHE_TTL.providers)
+      ) {
+        debug.info('Using cached providers, skipping API call')
+        return
+      }
+
       store$.models.isLoading.set(true)
 
       try {
@@ -236,6 +266,7 @@ export const actions = {
 
         store$.models.providers.set(providers)
         store$.models.defaults.set(defaults || {})
+        store$.cache.providersLastFetched.set(Date.now())
 
         // Auto-select a default model if none is currently selected
         ensureModelSelected(providers, defaults || {})
@@ -268,23 +299,32 @@ export const actions = {
           // Attempt to connect to the stored server URL
           await actions.connection.connect(serverUrl)
 
+          // Fetch app info after successful connection
+          await actions.connection.fetchAppInfo()
+
           // Load sessions and models in the background after successful connection
           setTimeout(() => {
-            // Load sessions
-            actions.sessions.loadSessions().catch(error => {
-              debug.warn(
-                'Failed to load sessions during initialization:',
-                error
-              )
-            })
+            // Only call loadSessions if cache is stale
+            const sessionsLastFetched = store$.cache.sessionsLastFetched.get()
+            if (!isCacheValid(sessionsLastFetched, CACHE_TTL.sessions)) {
+              actions.sessions.loadSessions().catch(error => {
+                debug.warn(
+                  'Failed to load sessions during initialization:',
+                  error
+                )
+              })
+            }
 
-            // Refresh providers to ensure we have the latest provider data
-            actions.connection.refreshProviders().catch(error => {
-              debug.warn(
-                'Failed to refresh providers during initialization:',
-                error
-              )
-            })
+            // Only call refreshProviders if cache is stale
+            const providersLastFetched = store$.cache.providersLastFetched.get()
+            if (!isCacheValid(providersLastFetched, CACHE_TTL.providers)) {
+              actions.connection.refreshProviders().catch(error => {
+                debug.warn(
+                  'Failed to refresh providers during initialization:',
+                  error
+                )
+              })
+            }
           }, 0)
         }
       } catch (error) {
@@ -367,17 +407,56 @@ export const actions = {
         store$.connection.reconnectTimeout.set(null)
       }
     },
+
+    fetchAppInfo: async () => {
+      if (
+        store$.connection.status.get() !== 'connected' ||
+        !openCodeService.isInitialized()
+      ) {
+        debug.warn('Cannot fetch app info: not connected')
+        return
+      }
+
+      try {
+        const appInfo = await openCodeService.getAppInfo()
+        store$.connection.appInfo.set(appInfo)
+        debug.info('App info fetched successfully:', {
+          hostname: appInfo.hostname,
+          git: appInfo.git,
+          root: appInfo.path.root,
+        })
+      } catch (error) {
+        debug.warn('Failed to fetch app info:', error)
+        // Don't throw error to avoid blocking app initialization
+        store$.connection.appInfo.set(null)
+      }
+    },
   },
 
   // Session actions
   sessions: {
-    loadSessions: async () => {
+    loadSessions: async (forceRefresh = false) => {
+      // Check if sessions exist and cache is valid (unless force refresh)
+      if (!forceRefresh) {
+        const existingSessions = store$.sessions.list.get()
+        const lastFetched = store$.cache.sessionsLastFetched.get()
+
+        if (
+          existingSessions.length > 0 &&
+          isCacheValid(lastFetched, CACHE_TTL.sessions)
+        ) {
+          debug.info('Using cached sessions, skipping API call')
+          return
+        }
+      }
+
       store$.sessions.isLoading.set(true)
       store$.sessions.error.set(null)
 
       try {
         const sessions = await openCodeService.getSessions()
         store$.sessions.list.set(sessions)
+        store$.cache.sessionsLastFetched.set(Date.now())
       } catch (error) {
         setActionError(
           error,
@@ -445,13 +524,34 @@ export const actions = {
 
   // Message actions
   messages: {
-    loadMessages: async (sessionId: string) => {
+    loadMessages: async (sessionId: string, forceRefresh = false) => {
+      // Check if messages exist and per-session cache is valid (unless force refresh)
+      if (!forceRefresh) {
+        const existingMessages =
+          store$.messages.bySessionId[sessionId].get() || []
+        const lastFetched = store$.cache.messagesLastFetched.get()[sessionId]
+
+        if (
+          existingMessages.length > 0 &&
+          isCacheValid(lastFetched, CACHE_TTL.messages)
+        ) {
+          debug.info(
+            `Using cached messages for session ${sessionId}, skipping API call`
+          )
+          return
+        }
+      }
+
       store$.messages.isLoading.set(true)
       store$.messages.error.set(null)
 
       try {
         const messages = await openCodeService.getMessages(sessionId)
         store$.messages.bySessionId[sessionId].set(messages)
+        store$.cache.messagesLastFetched.set(current => ({
+          ...current,
+          [sessionId]: Date.now(),
+        }))
       } catch (error) {
         setActionError(
           error,

@@ -75,6 +75,41 @@ class OpenCodeService {
     }
   }
 
+  async getAppInfo(): Promise<{
+    hostname: string
+    git: boolean
+    path: {
+      config: string
+      data: string
+      root: string
+      cwd: string
+      state: string
+    }
+    time: {
+      initialized?: number
+    }
+  }> {
+    if (!this.client) {
+      throw new Error('Client not initialized')
+    }
+
+    try {
+      const response = await this.client.app.get()
+      if ('error' in response && response.error) {
+        throw new Error('Failed to get app info')
+      }
+
+      if (!response.data) {
+        throw new Error('No app info returned')
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Failed to get app info:', error)
+      throw error
+    }
+  }
+
   async getProviders(): Promise<{
     providers: Provider[]
     default: Record<string, string>

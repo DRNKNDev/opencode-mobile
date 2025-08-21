@@ -26,6 +26,20 @@ export interface StoreState {
     retryCount: number
     healthCheckInterval: any
     reconnectTimeout: any
+    appInfo: {
+      hostname: string
+      git: boolean
+      path: {
+        config: string
+        data: string
+        root: string
+        cwd: string
+        state: string
+      }
+      time: {
+        initialized?: number
+      }
+    } | null
   }
 
   theme: 'tokyonight-dark' | 'tokyonight-light'
@@ -65,6 +79,13 @@ export interface StoreState {
     states: Record<string, ToolState>
     activeTools: string[]
   }
+
+  cache: {
+    sessionsLastFetched: number | null
+    providersLastFetched: number | null
+    agentsLastFetched: number | null
+    messagesLastFetched: Record<string, number> // per session
+  }
 }
 
 export const store$ = observable<StoreState>({
@@ -77,6 +98,7 @@ export const store$ = observable<StoreState>({
     retryCount: 0,
     healthCheckInterval: null,
     reconnectTimeout: null,
+    appInfo: null,
   },
 
   theme: 'tokyonight-dark',
@@ -116,6 +138,13 @@ export const store$ = observable<StoreState>({
     states: {},
     activeTools: [],
   },
+
+  cache: {
+    sessionsLastFetched: null,
+    providersLastFetched: null,
+    agentsLastFetched: null,
+    messagesLastFetched: {},
+  },
 })
 
 // Setup persistence for relevant state
@@ -150,6 +179,13 @@ syncObservable(store$.connection.serverUrl, {
 syncObservable(store$.agents.selected, {
   persist: {
     name: 'selected-agent',
+    plugin: ObservablePersistMMKV,
+  },
+})
+
+syncObservable(store$.cache, {
+  persist: {
+    name: 'cache-timestamps',
     plugin: ObservablePersistMMKV,
   },
 })

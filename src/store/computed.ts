@@ -172,6 +172,29 @@ export const connectionStatus = computed(
   })
 )
 
+// App info computed values
+export const appInfo = computed(() => store$.connection.appInfo.get())
+
+export const isGitRepo = computed(
+  () => store$.connection.appInfo.get()?.git ?? false
+)
+
+export const projectName = computed((): string | null => {
+  const appInfoValue = store$.connection.appInfo.get()
+  if (!appInfoValue?.path.root) return null
+
+  // Extract last directory name from path
+  const path = appInfoValue.path.root
+  if (path === '/' || path === '') return 'root'
+
+  // Remove trailing slash and get last segment
+  const cleanPath = path.replace(/\/$/, '')
+  const segments = cleanPath.split('/')
+  const lastSegment = segments[segments.length - 1]
+
+  return lastSegment || 'root'
+})
+
 // Grouped computed exports for convenience
 export const computed$ = {
   isConnected,
@@ -196,4 +219,7 @@ export const computed$ = {
   sessionsSortedByTime,
   availableProviders,
   connectionStatus,
+  appInfo,
+  isGitRepo,
+  projectName,
 }
