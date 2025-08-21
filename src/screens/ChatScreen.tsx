@@ -348,11 +348,6 @@ export default function ChatScreen() {
             isAborting={isAborting}
             currentModel={model?.id || ''}
             placeholder="Type a message..."
-            size="$2"
-            borderWidth={0}
-            focusStyle={{ borderWidth: 0 }}
-            paddingHorizontal={0}
-            paddingVertical={0}
           />
         </YStack>
       </YStack>

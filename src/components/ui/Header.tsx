@@ -1,7 +1,7 @@
+import { ArrowLeft } from '@tamagui/lucide-icons'
 import React from 'react'
 import { useWindowDimensions } from 'react-native'
-import { XStack, Heading, Button } from 'tamagui'
-import { ArrowLeft } from '@tamagui/lucide-icons'
+import { Button, Heading, XStack } from 'tamagui'
 import { ConnectionStatus } from './ConnectionStatus'
 
 export interface HeaderProps {
@@ -29,8 +29,6 @@ export function Header({
       justifyContent="space-between"
       alignItems="center"
       backgroundColor="$background"
-      borderBottomWidth={showBorder ? 0.5 : 0}
-      borderBottomColor="$borderColor"
       maxWidth={isTablet ? 1200 : undefined}
       alignSelf="center"
       width="100%"

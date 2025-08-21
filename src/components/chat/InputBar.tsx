@@ -9,7 +9,6 @@ import {
   StopCircle,
 } from '@tamagui/lucide-icons'
 import React, { useState } from 'react'
-import type { InputProps } from 'tamagui'
 import { Button, Text, XStack, YStack } from 'tamagui'
 import { store$ } from '../../store'
 import { selectedAgent } from '../../store/computed'
@@ -28,11 +27,6 @@ export interface InputBarProps {
   isStreaming?: boolean
   isAborting?: boolean
   currentModel?: string
-  size?: '$2' | '$3' | '$4'
-  borderWidth?: number
-  focusStyle?: InputProps['focusStyle']
-  paddingHorizontal?: number
-  paddingVertical?: number
 }
 
 export function InputBar({
@@ -46,11 +40,6 @@ export function InputBar({
   isStreaming = false,
   isAborting = false,
   currentModel,
-  size = '$2',
-  borderWidth,
-  focusStyle,
-  paddingHorizontal,
-  paddingVertical,
 }: InputBarProps) {
   const availableModels = useSelector(store$.models.available)
   const providers = useSelector(store$.models.providers)
@@ -101,11 +90,10 @@ export function InputBar({
         minLines={1}
         onSubmitEditing={handleSubmit}
         returnKeyType="send"
-        size={size}
-        borderWidth={borderWidth}
-        focusStyle={focusStyle}
-        paddingHorizontal={paddingHorizontal}
-        paddingVertical={paddingVertical}
+        size="$2"
+        borderWidth={0}
+        focusStyle={{ borderWidth: 0 }}
+        maxHeight="$16"
       />
 
       <XStack justifyContent="space-between" alignItems="center" marginTop="$2">
