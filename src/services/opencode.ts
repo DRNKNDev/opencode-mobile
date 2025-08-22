@@ -212,6 +212,48 @@ class OpenCodeService {
     }
   }
 
+  async shareSession(sessionId: string): Promise<{ url: string }> {
+    if (!this.client) {
+      throw new Error('Client not initialized')
+    }
+
+    try {
+      const response = await this.client.session.share({
+        path: { id: sessionId },
+      })
+      if ('error' in response && response.error) {
+        throw new Error('Failed to share session')
+      }
+
+      if (!response.data?.share?.url) {
+        throw new Error('No share URL returned')
+      }
+
+      return { url: response.data.share.url }
+    } catch (error) {
+      debug.error('Failed to share session:', error)
+      throw error
+    }
+  }
+
+  async unshareSession(sessionId: string): Promise<void> {
+    if (!this.client) {
+      throw new Error('Client not initialized')
+    }
+
+    try {
+      const response = await this.client.session.unshare({
+        path: { id: sessionId },
+      })
+      if ('error' in response && response.error) {
+        throw new Error('Failed to unshare session')
+      }
+    } catch (error) {
+      console.error('Failed to unshare session:', error)
+      throw error
+    }
+  }
+
   async getMessages(
     sessionId: string
   ): Promise<{ info: Message; parts: Part[] }[]> {
