@@ -25,7 +25,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set())
 
   // Extract timestamp from message.info
-  const timestamp = new Date(message.info.time.created * 1000)
+  const timestamp = new Date(message.info.time.created)
 
   const shouldRenderPart = (part: Part): boolean => {
     // Filter out synthetic text parts and step parts that shouldn't be shown

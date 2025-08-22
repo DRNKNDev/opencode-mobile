@@ -122,7 +122,7 @@ export default function SessionListScreen() {
 
   const handleRefresh = async () => {
     try {
-      await actions.sessions.loadSessions()
+      await actions.sessions.loadSessions(true)
     } catch (error) {
       console.error('Failed to refresh sessions:', error)
     }
