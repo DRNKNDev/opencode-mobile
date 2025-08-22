@@ -53,28 +53,6 @@ class OpenCodeService {
     return this.config
   }
 
-  async checkHealth(): Promise<{ status: 'ok' | 'error'; error?: string }> {
-    if (!this.client) {
-      return { status: 'error', error: 'Client not initialized' }
-    }
-
-    try {
-      const response = await this.client.app.get()
-      if ('error' in response && response.error) {
-        return {
-          status: 'error',
-          error: 'Failed to get app info',
-        }
-      }
-      return { status: 'ok' }
-    } catch (error) {
-      return {
-        status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }
-    }
-  }
-
   async getAppInfo(): Promise<{
     hostname: string
     git: boolean

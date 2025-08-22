@@ -23,9 +23,6 @@ export interface StoreState {
     error: string | null
     isLoading: boolean
     lastConnected: Date | null
-    retryCount: number
-    healthCheckInterval: any
-    reconnectTimeout: any
     appInfo: {
       hostname: string
       git: boolean
@@ -95,9 +92,6 @@ export const store$ = observable<StoreState>({
     error: null,
     isLoading: false,
     lastConnected: null,
-    retryCount: 0,
-    healthCheckInterval: null,
-    reconnectTimeout: null,
     appInfo: null,
   },
 

@@ -8,6 +8,4 @@ export const NETWORK_CONFIG = {
   timeout: 120000, // 2 minutes
   maxRetries: 2,
   maxRetryLimit: 3,
-  healthCheckInterval: 300000, // 5 minutes
-  retryBaseDelay: 2000, // exponential backoff base
 } as const

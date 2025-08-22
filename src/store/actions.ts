@@ -163,7 +163,6 @@ export const actions = {
       store$.connection.status.set('connecting')
       store$.connection.serverUrl.set(serverUrl)
       store$.connection.error.set(null)
-      store$.connection.retryCount.set(0)
 
       try {
         // Validate URL format
@@ -181,11 +180,8 @@ export const actions = {
 
         openCodeService.initialize(config)
 
-        // Test connection
-        const healthCheck = await openCodeService.checkHealth()
-        if (healthCheck.status === 'error') {
-          throw new Error(healthCheck.error || 'Health check failed')
-        }
+        // Test connection by getting app info
+        await openCodeService.getAppInfo()
 
         // Fetch and setup agents
         await ensureAgentSelected()
@@ -193,19 +189,9 @@ export const actions = {
         // Update store with successful connection
         store$.connection.status.set('connected')
         store$.connection.lastConnected.set(new Date())
-        store$.connection.retryCount.set(0)
-
-        // Start health monitoring
-        actions.connection.startHealthMonitoring()
       } catch (error) {
         setActionError(error, 'Connection failed', store$.connection.error.set)
         store$.connection.status.set('error')
-
-        // Attempt retry if not at max retries
-        const retryCount = store$.connection.retryCount.get()
-        if (retryCount < NETWORK_CONFIG.maxRetryLimit) {
-          actions.connection.scheduleReconnect()
-        }
 
         throw error
       } finally {
@@ -217,10 +203,6 @@ export const actions = {
       store$.connection.isLoading.set(true)
 
       try {
-        // Stop health monitoring and reconnection attempts
-        actions.connection.stopHealthMonitoring()
-        actions.connection.stopReconnectAttempts()
-
         // Disconnect OpenCode service
         openCodeService.disconnect()
 
@@ -229,7 +211,6 @@ export const actions = {
         store$.connection.serverUrl.set('')
         store$.connection.error.set(null)
         store$.connection.lastConnected.set(null)
-        store$.connection.retryCount.set(0)
         store$.models.providers.set([])
         store$.agents.available.set([])
       } finally {
@@ -329,82 +310,6 @@ export const actions = {
         }
       } catch (error) {
         debug.warn('Failed to initialize connection from storage:', error)
-      }
-    },
-
-    // Health monitoring
-    startHealthMonitoring: () => {
-      actions.connection.stopHealthMonitoring()
-
-      const interval = setInterval(() => {
-        actions.connection.performHealthCheck()
-      }, NETWORK_CONFIG.healthCheckInterval) // 5 minutes
-
-      store$.connection.healthCheckInterval.set(interval)
-    },
-
-    stopHealthMonitoring: () => {
-      const interval = store$.connection.healthCheckInterval.get()
-      if (interval) {
-        clearInterval(interval)
-        store$.connection.healthCheckInterval.set(null)
-      }
-    },
-
-    performHealthCheck: async () => {
-      if (store$.connection.status.get() !== 'connected') {
-        return
-      }
-
-      try {
-        const healthCheck = await openCodeService.checkHealth()
-
-        if (healthCheck.status === 'error') {
-          store$.connection.status.set('error')
-          store$.connection.error.set(
-            healthCheck.error || 'Health check failed'
-          )
-          actions.connection.scheduleReconnect()
-        }
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Health check failed'
-        store$.connection.status.set('error')
-        store$.connection.error.set(errorMessage)
-        actions.connection.scheduleReconnect()
-      }
-    },
-
-    // Reconnection logic
-    scheduleReconnect: () => {
-      const retryCount = store$.connection.retryCount.get()
-      const existingTimeout = store$.connection.reconnectTimeout.get()
-
-      if (existingTimeout || retryCount >= NETWORK_CONFIG.maxRetryLimit) {
-        return
-      }
-
-      const delay = NETWORK_CONFIG.retryBaseDelay * Math.pow(2, retryCount) // Exponential backoff
-
-      const timeout = setTimeout(async () => {
-        store$.connection.reconnectTimeout.set(null)
-        store$.connection.retryCount.set(retryCount + 1)
-
-        try {
-          await actions.connection.reconnect()
-        } catch (error) {
-          debug.error('Reconnection failed:', error)
-        }
-      }, delay)
-
-      store$.connection.reconnectTimeout.set(timeout)
-    },
-
-    stopReconnectAttempts: () => {
-      const timeout = store$.connection.reconnectTimeout.get()
-      if (timeout) {
-        clearTimeout(timeout)
-        store$.connection.reconnectTimeout.set(null)
       }
     },
 
