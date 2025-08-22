@@ -181,7 +181,7 @@ export default function SessionListScreen() {
       paddingBottom={isTablet ? 24 : 16}
     >
       {/* Header */}
-      <Header title="Sessions" connected={connected} showBorder={true} />
+      <Header title="Sessions" connected={connected} />
 
       {/* Input Section */}
       <YStack

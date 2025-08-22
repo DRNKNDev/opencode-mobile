@@ -9,7 +9,7 @@ export interface HeaderProps {
   showBackButton?: boolean
   onBackPress?: () => void
   connected?: boolean
-  showBorder?: boolean
+  rightContent?: React.ReactNode
 }
 
 export function Header({
@@ -17,14 +17,14 @@ export function Header({
   showBackButton = false,
   onBackPress,
   connected = true,
-  showBorder = false,
+  rightContent,
 }: HeaderProps) {
   const { width } = useWindowDimensions()
   const isTablet = width > 768
 
   return (
     <XStack
-      paddingHorizontal={isTablet ? '$6' : '$4'}
+      paddingHorizontal={isTablet ? '$6' : '$3'}
       height={53}
       justifyContent="space-between"
       alignItems="center"
@@ -33,7 +33,7 @@ export function Header({
       alignSelf="center"
       width="100%"
     >
-      <XStack alignItems="center" gap="$3" flex={1}>
+      <XStack alignItems="center" gap="$2" flex={1}>
         {showBackButton && (
           <Button
             size="$3"
@@ -52,7 +52,7 @@ export function Header({
           {title}
         </Heading>
       </XStack>
-      <ConnectionStatus connected={connected} />
+      {rightContent || <ConnectionStatus connected={connected} />}
     </XStack>
   )
 }

@@ -15,6 +15,7 @@ import { Button, Text, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { MessageBubble } from '../components/chat/MessageBubble'
 import { Header } from '../components/ui/Header'
+import { SessionActionsButton } from '../components/ui/SessionActionsButton'
 import { MessageSkeleton } from '../components/ui/SkeletonLoader'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
@@ -212,6 +213,35 @@ export default function ChatScreen() {
     }
   }
 
+  const handleShareSession = async (): Promise<void> => {
+    if (!id) return
+    try {
+      await actions.sessions.shareSession(id)
+    } catch (error) {
+      debug.error('Failed to share session:', error)
+    }
+  }
+
+  const handleUnshareSession = async (): Promise<void> => {
+    if (!id) return
+    try {
+      await actions.sessions.unshareSession(id)
+    } catch (error) {
+      debug.error('Failed to unshare session:', error)
+    }
+  }
+
+  const handleDeleteSession = async (): Promise<void> => {
+    if (!id) return
+    try {
+      await actions.sessions.deleteSession(id)
+      // Navigate back to session list after successful deletion
+      router.back()
+    } catch (error) {
+      debug.error('Failed to delete session:', error)
+    }
+  }
+
   const renderMessage = ({ item }: { item: SessionMessageResponse }) => (
     <MessageBubble message={item} />
   )
@@ -235,7 +265,20 @@ export default function ChatScreen() {
           showBackButton={true}
           onBackPress={() => router.back()}
           connected={connected}
-          showBorder={true}
+          rightContent={
+            session ? (
+              <SessionActionsButton
+                sessionId={session.id}
+                sessionTitle={session.title}
+                isShared={!!session.share}
+                shareUrl={session.share?.url}
+                onShare={handleShareSession}
+                onUnshare={handleUnshareSession}
+                onDelete={handleDeleteSession}
+                isLoading={store$.sessions.isLoading.get()}
+              />
+            ) : undefined
+          }
         />
 
         {/* Messages */}

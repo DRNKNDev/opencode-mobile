@@ -520,6 +520,53 @@ export const actions = {
         throw error
       }
     },
+
+    shareSession: async (sessionId: string): Promise<void> => {
+      try {
+        const result = await openCodeService.shareSession(sessionId)
+
+        // Update the session in the store with share data
+        store$.sessions.list.set(sessions =>
+          sessions.map(session =>
+            session.id === sessionId
+              ? { ...session, share: { url: result.url } }
+              : session
+          )
+        )
+
+        debug.success(`Session shared successfully: ${result.url}`)
+      } catch (error) {
+        debug.error('❌ Failed to share session:', error)
+        setActionError(
+          error,
+          'Failed to share session',
+          store$.sessions.error.set
+        )
+        throw error
+      }
+    },
+
+    unshareSession: async (sessionId: string): Promise<void> => {
+      try {
+        await openCodeService.unshareSession(sessionId)
+
+        // Update the session in the store to remove share data
+        store$.sessions.list.set(sessions =>
+          sessions.map(session =>
+            session.id === sessionId
+              ? { ...session, share: undefined }
+              : session
+          )
+        )
+      } catch (error) {
+        setActionError(
+          error,
+          'Failed to unshare session',
+          store$.sessions.error.set
+        )
+        throw error
+      }
+    },
   },
 
   // Message actions
