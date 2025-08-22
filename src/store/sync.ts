@@ -1,6 +1,6 @@
-import { openCodeService } from '../services/opencode'
-import type { Event, SessionMessageResponse } from '@opencode-ai/sdk'
 import { batch } from '@legendapp/state'
+import type { Event, SessionMessageResponse } from '@opencode-ai/sdk'
+import { openCodeService } from '../services/opencode'
 import { actions } from './actions'
 import { store$ } from './index'
 
@@ -19,6 +19,9 @@ class SyncService {
       this.isListening = true
       this.eventStream = openCodeService.streamEvents()
 
+      store$.connection.status.set('connected')
+      this.retryCount = 0
+
       for await (const event of this.eventStream) {
         await this.handleEvent(event)
       }
@@ -26,10 +29,15 @@ class SyncService {
       console.error('SSE connection error:', error)
       this.isListening = false
 
+      store$.connection.status.set('error')
+      store$.connection.error.set(
+        error instanceof Error ? error.message : 'SSE connection failed'
+      )
+
       // Enhanced retry with exponential backoff
       const retryDelay = this.getRetryDelay()
       setTimeout(() => {
-        if (store$.connection.status.get() === 'connected') {
+        if (store$.connection.status.get() === 'error') {
           this.startSync()
         }
       }, retryDelay)
@@ -140,6 +148,11 @@ class SyncService {
             sessions.filter(s => s.id !== sessionId)
           )
         }
+        break
+
+      case 'server.connected':
+        console.log('SSE: Server connected event received')
+        store$.connection.status.set('connected')
         break
 
       case 'storage.write':
