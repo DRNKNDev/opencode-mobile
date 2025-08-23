@@ -13,7 +13,7 @@ export interface ModelSelectorProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   selectedModel: string
-  onModelSelect: (modelId: string) => void
+  onModelSelect: (modelId: string, providerId: string) => void
 }
 
 export function ModelSelector({
@@ -29,27 +29,24 @@ export function ModelSelector({
     Math.random().toString(36).substring(2, 9)
   )
 
-  // Create available models from providers (deduplicated by model ID)
-  const availableModels = providers
-    .flatMap((provider: Provider) =>
-      provider.models ? Object.values(provider.models) : []
-    )
-    .filter(
-      (model, index, array) => index === array.findIndex(m => m.id === model.id)
-    )
-
   // Load models when modal opens if not already loaded
   useEffect(() => {
     if (open && providers.length === 0 && !isLoading) {
-      actions.connection.refreshProviders().catch((error: Error) => {
-        debug.warn('Failed to refresh providers in ModelSelector:', error)
+      actions.models.loadProviders().catch((error: Error) => {
+        debug.warn('Failed to load providers in ModelSelector:', error)
       })
     }
   }, [open, providers.length, isLoading])
 
   const handleModelSelect = (modelId: string) => {
-    onModelSelect(modelId)
-    onOpenChange(false)
+    // Find the provider that has this model
+    for (const provider of providers) {
+      if (provider.models && provider.models[modelId]) {
+        onModelSelect(modelId, provider.id)
+        onOpenChange(false)
+        return
+      }
+    }
   }
 
   const handleClose = () => {
@@ -58,52 +55,55 @@ export function ModelSelector({
 
   const handleRefresh = async () => {
     try {
-      await actions.connection.refreshProviders()
+      await actions.models.loadProviders(true) // Force refresh
     } catch (err) {
       // Error is handled by the store actions
-      debug.error('Failed to refresh providers:', err)
+      debug.error('Failed to load providers:', err)
     }
   }
 
-  // Helper function to check if a model is the API-provided default for its provider
-  const isDefaultModel = (model: Model): boolean => {
-    const provider = providers.find(
-      (p: Provider) =>
-        p.models &&
-        Object.values(p.models).some((m: Model) => m.id === model.id)
-    )
-    if (!provider?.models) return false
+  // Get default models and group providers
+  const defaults = useSelector(store$.models.default)
+  const defaultModels: {
+    model: Model
+    providerId: string
+    providerName: string
+  }[] = []
+  const providerGroups: {
+    provider: Provider
+    models: Model[]
+    nonDefaultModels: Model[]
+  }[] = []
 
-    // Check if this model is the API-provided default for this provider
-    const defaults = store$.models.defaults.get()
+  // Collect ALL default model IDs from all providers
+  const allDefaultModelIds = new Set(Object.values(defaults))
+
+  providers.forEach(provider => {
+    if (!provider.models) return
+
+    const models = Object.values(provider.models)
     const defaultModelId = defaults[provider.id]
+    const defaultModel = defaultModelId ? provider.models[defaultModelId] : null
 
-    return defaultModelId === model.id
-  }
+    if (defaultModel) {
+      defaultModels.push({
+        model: defaultModel,
+        providerId: provider.id,
+        providerName: provider.name || provider.id,
+      })
+    }
 
-  // Get default models as a separate group (first model from each provider)
-  const defaultModelsList = availableModels.filter(isDefaultModel)
+    // Filter out ALL default models, not just this provider's default
+    const nonDefaultModels = models.filter(model => !allDefaultModelIds.has(model.id))
 
-  // Group non-default models by provider (exclude models that are already in defaults)
-  const defaultModelIds = new Set(defaultModelsList.map(m => m.id))
-  const nonDefaultModels = availableModels.filter(
-    model => !defaultModelIds.has(model.id)
-  )
-
-  const groupedModels = nonDefaultModels.reduce(
-    (acc: Record<string, Model[]>, model: Model) => {
-      const provider = providers.find(
-        p => p.models && Object.values(p.models).some(m => m.id === model.id)
-      )
-      const providerName = provider?.name || provider?.id || 'Unknown'
-      if (!acc[providerName]) {
-        acc[providerName] = []
-      }
-      acc[providerName].push(model)
-      return acc
-    },
-    {} as Record<string, Model[]>
-  )
+    if (nonDefaultModels.length > 0) {
+      providerGroups.push({
+        provider,
+        models,
+        nonDefaultModels,
+      })
+    }
+  })
 
   // Constants for model display
   const MODEL_ITEM_HEIGHT = 60 // Approximate height including padding and separator
@@ -113,19 +113,15 @@ export function ModelSelector({
   // Helper component to render a model item
   const ModelItem = ({
     model,
+    providerId,
+    providerName,
     showProvider = false,
-    section = 'provider',
   }: {
     model: Model
+    providerId: string
+    providerName?: string
     showProvider?: boolean
-    section?: 'default' | 'provider'
   }) => {
-    // Get provider name for this model
-    const modelProvider = providers.find(
-      p => p.models && Object.values(p.models).some(m => m.id === model.id)
-    )
-    const providerName = modelProvider?.name || modelProvider?.id || 'Unknown'
-
     return (
       <XStack
         alignItems="center"
@@ -142,7 +138,7 @@ export function ModelSelector({
       >
         <RadioGroup.Item
           value={model.id}
-          id={`${instanceId}-${section}-${model.id}`}
+          id={`${providerId}-${model.id}`}
           size="$4"
         >
           <RadioGroup.Indicator />
@@ -238,7 +234,7 @@ export function ModelSelector({
           )}
 
           {/* Empty State */}
-          {!isLoading && availableModels.length === 0 && (
+          {!isLoading && providers.length === 0 && (
             <Text
               fontSize="$4"
               color="$color11"
@@ -262,15 +258,15 @@ export function ModelSelector({
               name={`model-selector-${instanceId}`}
             >
               <YStack gap="$4" paddingRight="$2">
-                {/* Recommended Models Section */}
-                {defaultModelsList.length > 0 && (
+                {/* Default Models Section */}
+                {defaultModels.length > 0 && (
                   <YStack gap="$2">
                     <XStack alignItems="center" gap="$2">
                       <Text fontSize="$4" fontWeight="600" color="$blue10">
                         Default
                       </Text>
                       <Text fontSize="$3" color="$color11">
-                        ({defaultModelsList.length})
+                        ({defaultModels.length})
                       </Text>
                     </XStack>
 
@@ -280,14 +276,17 @@ export function ModelSelector({
                       padding="$2"
                     >
                       <YStack gap="$1" paddingRight="$2">
-                        {defaultModelsList.map((model, index) => (
-                          <YStack key={`default-${model.id}-${index}`}>
+                        {defaultModels.map((item, index) => (
+                          <YStack
+                            key={`default-${item.providerId}-${item.model.id}-${index}`}
+                          >
                             <ModelItem
-                              model={model}
+                              model={item.model}
+                              providerId={item.providerId}
+                              providerName={item.providerName}
                               showProvider={true}
-                              section="default"
                             />
-                            {index < defaultModelsList.length - 1 && (
+                            {index < defaultModels.length - 1 && (
                               <Separator
                                 marginHorizontal="$3"
                                 borderWidth={0.5}
@@ -303,74 +302,71 @@ export function ModelSelector({
                 {/* All Models by Provider Section */}
                 <YStack gap="$2">
                   <YStack gap="$3">
-                    {Object.entries(groupedModels).map(
-                      ([provider, providerModels]) => (
-                        <YStack key={provider} gap="$2">
-                          <XStack alignItems="center" gap="$2">
+                    {providerGroups.map(group => (
+                      <YStack key={group.provider.id} gap="$2">
+                        <XStack alignItems="center" gap="$2">
+                          <Text fontSize="$4" fontWeight="500" color="$color11">
+                            {group.provider.name || group.provider.id}
+                          </Text>
+                          <Text fontSize="$3" color="$color11">
+                            ({group.nonDefaultModels.length})
+                          </Text>
+                          {group.nonDefaultModels.length >
+                            MAX_VISIBLE_MODELS && (
                             <Text
-                              fontSize="$4"
-                              fontWeight="500"
-                              color="$color11"
+                              fontSize="$2"
+                              color="$color10"
+                              fontStyle="italic"
                             >
-                              {provider}
+                              scroll for more
                             </Text>
-                            <Text fontSize="$3" color="$color11">
-                              ({(providerModels as Model[]).length})
-                            </Text>
-                            {(providerModels as Model[]).length >
-                              MAX_VISIBLE_MODELS && (
-                              <Text
-                                fontSize="$2"
-                                color="$color10"
-                                fontStyle="italic"
-                              >
-                                scroll for more
-                              </Text>
-                            )}
-                          </XStack>
+                          )}
+                        </XStack>
 
-                          <YStack
-                            backgroundColor="$backgroundHover"
-                            borderRadius="$4"
-                            padding="$2"
+                        <YStack
+                          backgroundColor="$backgroundHover"
+                          borderRadius="$4"
+                          padding="$2"
+                        >
+                          <Sheet.ScrollView
+                            style={{
+                              maxHeight:
+                                group.nonDefaultModels.length >
+                                MAX_VISIBLE_MODELS
+                                  ? PROVIDER_SECTION_HEIGHT
+                                  : undefined,
+                            }}
+                            showsVerticalScrollIndicator={
+                              group.nonDefaultModels.length > MAX_VISIBLE_MODELS
+                            }
+                            nestedScrollEnabled={true}
                           >
-                            <Sheet.ScrollView
-                              style={{
-                                maxHeight:
-                                  providerModels.length > MAX_VISIBLE_MODELS
-                                    ? PROVIDER_SECTION_HEIGHT
-                                    : undefined,
-                              }}
-                              showsVerticalScrollIndicator={
-                                providerModels.length > MAX_VISIBLE_MODELS
-                              }
-                              nestedScrollEnabled={true}
-                            >
-                              <YStack gap="$1" paddingRight="$2">
-                                {providerModels.map(
-                                  (model: Model, index: number) => (
-                                    <YStack
-                                      key={`${provider}-${model.id}-${index}`}
-                                    >
-                                      <ModelItem
-                                        model={model}
-                                        section="provider"
-                                      />
-                                      {index < providerModels.length - 1 && (
-                                        <Separator
-                                          marginHorizontal="$3"
-                                          borderWidth={0.5}
-                                        />
-                                      )}
-                                    </YStack>
-                                  )
-                                )}
-                              </YStack>
-                            </Sheet.ScrollView>
-                          </YStack>
+                            <YStack gap="$1" paddingRight="$2">
+                              {group.nonDefaultModels.map((model, index) => (
+                                <YStack
+                                  key={`${group.provider.id}-${model.id}-${index}`}
+                                >
+                                  <ModelItem
+                                    model={model}
+                                    providerId={group.provider.id}
+                                    providerName={
+                                      group.provider.name || group.provider.id
+                                    }
+                                  />
+                                  {index <
+                                    group.nonDefaultModels.length - 1 && (
+                                    <Separator
+                                      marginHorizontal="$3"
+                                      borderWidth={0.5}
+                                    />
+                                  )}
+                                </YStack>
+                              ))}
+                            </YStack>
+                          </Sheet.ScrollView>
                         </YStack>
-                      )
-                    )}
+                      </YStack>
+                    ))}
                   </YStack>
                 </YStack>
               </YStack>

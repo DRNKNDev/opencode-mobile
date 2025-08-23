@@ -96,28 +96,8 @@ export default function SessionListScreen() {
     router.push(`/chat/${session.id}`)
   }
 
-  const handleModelSelect = (modelId: string) => {
-    // Find which provider owns this model
-    const providers = store$.models.providers.get()
-    let foundProviderId: string | null = null
-
-    for (const provider of providers) {
-      if (provider.models && provider.models[modelId]) {
-        foundProviderId = provider.id
-        break
-      }
-    }
-
-    // If we found the provider, use it; otherwise fall back to current or default
-    if (foundProviderId) {
-      actions.models.selectModel(modelId, foundProviderId)
-    } else {
-      // This shouldn't happen if the model selector is working correctly
-      console.warn(`Could not find provider for model ${modelId}`)
-      const currentSelection = store$.models.selected.get()
-      const providerId = currentSelection?.providerID || 'anthropic'
-      actions.models.selectModel(modelId, providerId)
-    }
+  const handleModelSelect = (modelId: string, providerId: string) => {
+    actions.models.selectModel(modelId, providerId)
   }
 
   const handleRefresh = async () => {

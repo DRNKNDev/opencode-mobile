@@ -1,18 +1,18 @@
 import { computed } from '@legendapp/state'
-import { store$ } from './index'
 import type {
-  Session,
-  Model,
   Agent,
+  Model,
+  Session,
   SessionMessageResponse,
 } from '@opencode-ai/sdk'
 import type { ConnectionStatus } from '../services/types'
 import {
-  groupSessionsByTime,
   flattenGroupsForList,
-  type SessionGroup,
+  groupSessionsByTime,
   type ListItem,
+  type SessionGroup,
 } from '../utils/sessionGrouping'
+import { store$ } from './index'
 
 // Connection computed values
 export const isConnected = computed(
@@ -71,45 +71,6 @@ export const selectedAgent = computed((): Agent | null => {
 // Available agents
 export const availableAgents = computed((): Agent[] => {
   return store$.agents.available.get()
-})
-
-// Default model for a provider - uses API defaults first, then fallback to first model
-export const getDefaultModelForProvider = (
-  providerId: string
-): string | null => {
-  // First check if we have an API-provided default for this provider
-  const defaults = store$.models.defaults.get()
-  if (defaults[providerId]) {
-    // Verify the default model still exists in the provider
-    const providers = store$.models.providers.get()
-    const provider = providers.find(p => p.id === providerId)
-    if (provider?.models && provider.models[defaults[providerId]]) {
-      return defaults[providerId]
-    }
-  }
-
-  // Fallback to first available model if no valid default
-  const providers = store$.models.providers.get()
-  const provider = providers.find(p => p.id === providerId)
-  if (provider?.models) {
-    const modelIds = Object.keys(provider.models)
-    return modelIds.length > 0 ? modelIds[0] : null
-  }
-  return null
-}
-
-// Available models grouped by provider
-export const modelsByProvider = computed(() => {
-  const providers = store$.models.providers.get()
-  const grouped: Record<string, Model[]> = {}
-
-  providers.forEach(provider => {
-    if (provider.models) {
-      grouped[provider.id] = Object.values(provider.models)
-    }
-  })
-
-  return grouped
 })
 
 // Theme computed values
@@ -175,12 +136,6 @@ export const sessionsWithHeaders = computed((): ListItem[] => {
   return flattenGroupsForList(groups)
 })
 
-// Available providers
-export const availableProviders = computed((): string[] => {
-  const providers = store$.models.providers.get()
-  return providers.map(p => p.id)
-})
-
 // Connection status for UI
 export const connectionStatus = computed(
   (): ConnectionStatus => ({
@@ -225,7 +180,6 @@ export const computed$ = {
   selectedModel,
   selectedAgent,
   availableAgents,
-  modelsByProvider,
   isDarkTheme,
   isLightTheme,
   isAnyLoading,
@@ -237,7 +191,6 @@ export const computed$ = {
   sessionsSortedByTime,
   sessionsGroupedByTime,
   sessionsWithHeaders,
-  availableProviders,
   connectionStatus,
   appInfo,
   isGitRepo,

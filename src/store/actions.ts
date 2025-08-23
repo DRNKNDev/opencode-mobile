@@ -1,4 +1,4 @@
-import type { Agent, Provider, SessionMessageResponse } from '@opencode-ai/sdk'
+import type { Agent, SessionMessageResponse } from '@opencode-ai/sdk'
 import { openCodeService, type OpenCodeConfig } from '../services/opencode'
 import { debug } from '../utils/debug'
 import { store$ } from './index'
@@ -62,53 +62,11 @@ const getFallbackAgents = (): Agent[] => {
   ]
 }
 
-// Simple helper to auto-select a model
-const selectDefaultModel = (
-  providers: Provider[],
-  defaults: Record<string, string>
-) => {
-  if (!providers?.length) return null
-
-  // Try API defaults first
-  if (defaults && Object.keys(defaults).length > 0) {
-    for (const [providerId, modelId] of Object.entries(defaults)) {
-      const provider = providers.find(p => p.id === providerId)
-      if (provider?.models?.[modelId]) {
-        return { modelID: modelId, providerID: providerId }
-      }
-    }
-  }
-
-  // Fallback to first available model
-  for (const provider of providers) {
-    const modelIds = Object.keys(provider.models || {})
-    if (modelIds.length > 0) {
-      return { modelID: modelIds[0], providerID: provider.id }
-    }
-  }
-
-  return null
-}
-
 // Simple helper to select default agent
 const selectDefaultAgent = (agents: Agent[]) => {
   if (!agents?.length) return null
   // Prefer build agent if available
   return agents.find(a => a.name === 'build')?.name || agents[0]?.name || null
-}
-
-// Helper to avoid duplicating model selection logic
-const ensureModelSelected = (
-  providers: Provider[],
-  defaults: Record<string, string>
-) => {
-  const currentSelected = store$.models.selected.get()
-  if (!currentSelected) {
-    const selected = selectDefaultModel(providers, defaults || {})
-    if (selected) {
-      store$.models.selected.set(selected)
-    }
-  }
 }
 
 // Helper to avoid duplicating agent selection logic
@@ -196,7 +154,7 @@ export const actions = {
 
         // Load providers and sessions in background (respecting cache)
         Promise.allSettled([
-          actions.connection.refreshProviders(),
+          actions.models.loadProviders(),
           actions.sessions.loadSessions(),
         ]).catch(error => {
           debug.warn('Failed to load initial data:', error)
@@ -227,51 +185,6 @@ export const actions = {
         store$.agents.available.set([])
       } finally {
         store$.connection.isLoading.set(false)
-      }
-    },
-
-    refreshProviders: async () => {
-      // Check if we're connected
-      if (
-        store$.connection.status.get() !== 'connected' ||
-        !openCodeService.isInitialized()
-      ) {
-        throw new Error('Not connected to server')
-      }
-
-      // Check if providers exist and cache is valid
-      const existingProviders = store$.models.providers.get()
-      const lastFetched = store$.cache.providersLastFetched.get()
-
-      if (
-        existingProviders.length > 0 &&
-        isCacheValid(lastFetched, CACHE_TTL.providers)
-      ) {
-        debug.info('Using cached providers, skipping API call')
-        return
-      }
-
-      store$.models.isLoading.set(true)
-
-      try {
-        const providersResponse = await openCodeService.getProviders()
-        const { providers, default: defaults } = providersResponse
-
-        store$.models.providers.set(providers)
-        store$.models.defaults.set(defaults || {})
-        store$.cache.providersLastFetched.set(Date.now())
-
-        // Auto-select a default model if none is currently selected
-        ensureModelSelected(providers, defaults || {})
-      } catch (error) {
-        setActionError(
-          error,
-          'Failed to refresh providers',
-          store$.connection.error.set
-        )
-        throw error
-      } finally {
-        store$.models.isLoading.set(false)
       }
     },
   },
@@ -562,7 +475,61 @@ export const actions = {
 
   // Model actions
   models: {
+    loadProviders: async (forceRefresh = false) => {
+      // Check if we're connected
+      if (
+        store$.connection.status.get() !== 'connected' ||
+        !openCodeService.isInitialized()
+      ) {
+        throw new Error('Not connected to server')
+      }
+
+      // Check if providers exist and cache is valid (unless force refresh)
+      if (!forceRefresh) {
+        const existingProviders = store$.models.providers.get()
+        const lastFetched = store$.cache.providersLastFetched.get()
+
+        if (
+          existingProviders.length > 0 &&
+          isCacheValid(lastFetched, CACHE_TTL.providers)
+        ) {
+          debug.info('Using cached providers, skipping API call')
+          return
+        }
+      }
+
+      store$.models.isLoading.set(true)
+      store$.models.error.set(null)
+
+      try {
+        const providersResponse = await openCodeService.getProviders()
+        const { providers, default: defaults } = providersResponse
+
+        store$.models.providers.set(providers)
+        store$.models.default.set(defaults || {})
+        store$.cache.providersLastFetched.set(Date.now())
+      } catch (error) {
+        setActionError(
+          error,
+          'Failed to load providers',
+          store$.models.error.set
+        )
+        throw error
+      } finally {
+        store$.models.isLoading.set(false)
+      }
+    },
+
     selectModel: (modelId: string, providerId: string) => {
+      const providers = store$.models.providers.get()
+      const provider = providers.find(p => p.id === providerId)
+
+      if (!provider?.models?.[modelId]) {
+        throw new Error(
+          `Model '${modelId}' not found in provider '${providerId}'`
+        )
+      }
+
       store$.models.selected.set({ modelID: modelId, providerID: providerId })
     },
   },

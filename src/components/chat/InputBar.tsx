@@ -10,8 +10,7 @@ import {
 } from '@tamagui/lucide-icons'
 import React, { useState } from 'react'
 import { Button, Text, XStack, YStack } from 'tamagui'
-import { store$ } from '../../store'
-import { selectedAgent } from '../../store/computed'
+import { selectedAgent, selectedModel } from '../../store/computed'
 import { AgentSelector } from '../modals/AgentSelector'
 import { ModelSelector } from '../modals/ModelSelector'
 import { TextArea } from '../ui/TextArea'
@@ -21,7 +20,7 @@ export interface InputBarProps {
   onChange: (text: string) => void
   onSubmit: () => void
   onStop: () => void
-  onModelSelect?: (modelId: string) => void
+  onModelSelect?: (modelId: string, providerId: string) => void
   disabled?: boolean
   placeholder?: string
   isStreaming?: boolean
@@ -41,30 +40,14 @@ export function InputBar({
   isAborting = false,
   currentModel,
 }: InputBarProps) {
-  const availableModels = useSelector(store$.models.available)
-  const providers = useSelector(store$.models.providers)
   const currentAgent = useSelector(selectedAgent)
+  const currentSelectedModel = useSelector(selectedModel)
   const [showModelSelector, setShowModelSelector] = useState(false)
   const [showAgentSelector, setShowAgentSelector] = useState(false)
   const canSend = value.trim().length > 0 && !disabled
 
-  const getModelName = (modelId: string | undefined): string => {
-    if (!modelId) return 'Select Model'
-
-    // First try to find in availableModels array
-    let foundModel = availableModels.find(m => m.id === modelId)
-
-    // If not found, search through providers' models
-    if (!foundModel && providers.length > 0) {
-      for (const provider of providers) {
-        if (provider.models && provider.models[modelId]) {
-          foundModel = provider.models[modelId]
-          break
-        }
-      }
-    }
-
-    return foundModel?.name || modelId
+  const getModelName = (): string => {
+    return currentSelectedModel?.name || currentModel || 'Select Model'
   }
 
   const handleSubmit = () => {
@@ -131,7 +114,7 @@ export function InputBar({
             aria-label="Select AI model"
           >
             <Text fontSize="$3" color="$color11" numberOfLines={1}>
-              {getModelName(currentModel)}
+              {getModelName()}
             </Text>
           </Button>
         </XStack>
@@ -160,8 +143,8 @@ export function InputBar({
         open={showModelSelector}
         onOpenChange={setShowModelSelector}
         selectedModel={currentModel || ''}
-        onModelSelect={modelId => {
-          onModelSelect?.(modelId)
+        onModelSelect={(modelId, providerId) => {
+          onModelSelect?.(modelId, providerId)
           setShowModelSelector(false)
         }}
       />
