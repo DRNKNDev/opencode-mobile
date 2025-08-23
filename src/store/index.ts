@@ -3,7 +3,6 @@ import { ObservablePersistMMKV } from '@legendapp/state/persist-plugins/mmkv'
 import { syncObservable } from '@legendapp/state/sync'
 import type {
   Agent,
-  Model,
   Provider,
   Session,
   SessionMessageResponse,
@@ -58,11 +57,11 @@ export interface StoreState {
   }
 
   models: {
-    available: Model[]
     providers: Provider[]
-    defaults: Record<string, string>
+    default: Record<string, string>
     selected: { modelID: string; providerID: string } | null
     isLoading: boolean
+    error: string | null
   }
 
   agents: {
@@ -114,11 +113,11 @@ export const store$ = observable<StoreState>({
   },
 
   models: {
-    available: [],
     providers: [],
-    defaults: {}, // { providerId: modelId } from API
+    default: {}, // { providerId: modelId } from API
     selected: null,
     isLoading: false,
+    error: null,
   },
 
   agents: {
