@@ -1,5 +1,4 @@
 import type { Agent, Provider, SessionMessageResponse } from '@opencode-ai/sdk'
-import { NETWORK_CONFIG } from '../config/constants'
 import { openCodeService, type OpenCodeConfig } from '../services/opencode'
 import { debug } from '../utils/debug'
 import { store$ } from './index'
@@ -174,8 +173,6 @@ export const actions = {
         // Initialize OpenCode service
         const config: OpenCodeConfig = {
           baseURL: serverUrl,
-          timeout: NETWORK_CONFIG.timeout, // 2 minutes for streaming connections
-          maxRetries: NETWORK_CONFIG.maxRetries,
         }
 
         openCodeService.initialize(config)

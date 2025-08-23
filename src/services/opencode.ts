@@ -13,8 +13,6 @@ import EventSource from 'react-native-sse'
 
 export interface OpenCodeConfig {
   baseURL: string
-  timeout?: number
-  maxRetries?: number
 }
 
 class OpenCodeService {
