@@ -2,7 +2,6 @@ import { computed } from '@legendapp/state'
 import type {
   Agent,
   Model,
-  Provider,
   Session,
   SessionMessageResponse,
 } from '@opencode-ai/sdk'
@@ -73,15 +72,6 @@ export const selectedAgent = computed((): Agent | null => {
 export const availableAgents = computed((): Agent[] => {
   return store$.agents.available.get()
 })
-
-// Find provider for a model
-export const findProviderForModel = (modelId: string): Provider | null => {
-  const providers = store$.models.providers.get()
-  return (
-    providers.find(provider => provider.models && provider.models[modelId]) ||
-    null
-  )
-}
 
 // Theme computed values
 export const isDarkTheme = computed(
