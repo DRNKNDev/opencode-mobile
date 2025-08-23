@@ -24,7 +24,7 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const providers = useSelector(store$.models.providers)
   const isLoading = useSelector(store$.models.isLoading)
-  const error = useSelector(store$.connection.error)
+  const error = useSelector(store$.models.error)
   const [instanceId] = useState(() =>
     Math.random().toString(36).substring(2, 9)
   )
