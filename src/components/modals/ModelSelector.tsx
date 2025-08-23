@@ -3,7 +3,7 @@ import type { Model, Provider } from '@opencode-ai/sdk'
 import { RefreshCw, X } from '@tamagui/lucide-icons'
 import { RadioGroup } from '@tamagui/radio-group'
 import { Sheet } from '@tamagui/sheet'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useId } from 'react'
 import { Button, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
 import { store$ } from '../../store'
 import { actions } from '../../store/actions'
@@ -25,9 +25,7 @@ export function ModelSelector({
   const providers = useSelector(store$.models.providers)
   const isLoading = useSelector(store$.models.isLoading)
   const error = useSelector(store$.models.error)
-  const [instanceId] = useState(() =>
-    Math.random().toString(36).substring(2, 9)
-  )
+  const instanceId = useId()
 
   // Load models when modal opens if not already loaded
   useEffect(() => {
@@ -94,7 +92,9 @@ export function ModelSelector({
     }
 
     // Filter out ALL default models, not just this provider's default
-    const nonDefaultModels = models.filter(model => !allDefaultModelIds.has(model.id))
+    const nonDefaultModels = models.filter(
+      model => !allDefaultModelIds.has(model.id)
+    )
 
     if (nonDefaultModels.length > 0) {
       providerGroups.push({
@@ -138,7 +138,7 @@ export function ModelSelector({
       >
         <RadioGroup.Item
           value={model.id}
-          id={`${providerId}-${model.id}`}
+          id={`${instanceId}-${providerId}-${model.id}`}
           size="$4"
         >
           <RadioGroup.Indicator />
