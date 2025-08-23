@@ -1,7 +1,6 @@
 import type { Agent, SessionMessageResponse } from '@opencode-ai/sdk'
 import { openCodeService, type OpenCodeConfig } from '../services/opencode'
 import { debug } from '../utils/debug'
-import { findProviderForModel } from './computed'
 import { store$ } from './index'
 
 // Cache TTL constants
@@ -521,27 +520,17 @@ export const actions = {
       }
     },
 
-    selectModel: (modelId: string, providerId?: string) => {
-      // If provider is specified, validate the combination
-      if (providerId) {
-        const providers = store$.models.providers.get()
-        const provider = providers.find(p => p.id === providerId)
-        if (!provider?.models?.[modelId]) {
-          throw new Error(
-            `Model '${modelId}' not found in provider '${providerId}'`
-          )
-        }
-        store$.models.selected.set({ modelID: modelId, providerID: providerId })
-        return
+    selectModel: (modelId: string, providerId: string) => {
+      const providers = store$.models.providers.get()
+      const provider = providers.find(p => p.id === providerId)
+
+      if (!provider?.models?.[modelId]) {
+        throw new Error(
+          `Model '${modelId}' not found in provider '${providerId}'`
+        )
       }
 
-      // Auto-find provider for the model
-      const provider = findProviderForModel(modelId)
-      if (!provider) {
-        throw new Error(`Model '${modelId}' not found in any provider`)
-      }
-
-      store$.models.selected.set({ modelID: modelId, providerID: provider.id })
+      store$.models.selected.set({ modelID: modelId, providerID: providerId })
     },
   },
 
