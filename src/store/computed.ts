@@ -74,20 +74,6 @@ export const availableAgents = computed((): Agent[] => {
   return store$.agents.available.get()
 })
 
-// Get all models from providers (flat list) - replaces manual extraction
-export const allModels = computed((): Model[] => {
-  const providers = store$.models.providers.get()
-  const models: Model[] = []
-
-  providers.forEach(provider => {
-    if (provider.models) {
-      models.push(...Object.values(provider.models))
-    }
-  })
-
-  return models
-})
-
 // Find provider for a model
 export const findProviderForModel = (modelId: string): Provider | null => {
   const providers = store$.models.providers.get()
@@ -204,7 +190,6 @@ export const computed$ = {
   selectedModel,
   selectedAgent,
   availableAgents,
-  allModels,
   isDarkTheme,
   isLightTheme,
   isAnyLoading,
