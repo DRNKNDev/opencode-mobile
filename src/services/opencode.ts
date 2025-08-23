@@ -1,4 +1,4 @@
-// Import types from the main SDK (these are just TypeScript types, no runtime code)
+import { debug } from '@/src/utils/debug'
 import type {
   Agent,
   Event,
@@ -8,24 +8,8 @@ import type {
   Session,
   TextPartInput,
 } from '@opencode-ai/sdk'
-
-// Import EventSource from react-native-sse for SSE transport layer
+import { createOpencodeClient } from '@opencode-ai/sdk/client'
 import EventSource from 'react-native-sse'
-
-// Import the client creation functions directly from internals to avoid Node.js dependencies
-// @ts-ignore - These internal paths work at runtime but aren't in the package exports
-import { createClient } from '@opencode-ai/sdk/dist/gen/client/client.js'
-// @ts-ignore
-import { OpencodeClient } from '@opencode-ai/sdk/dist/gen/sdk.gen.js'
-
-// Import debug utility for logging
-import { debug } from '@/src/utils/debug'
-
-// Create our own createOpencodeClient function that avoids the main SDK entry point
-function createOpencodeClient(config: { baseUrl: string }) {
-  const client = createClient(config)
-  return new OpencodeClient({ client })
-}
 
 export interface OpenCodeConfig {
   baseURL: string
