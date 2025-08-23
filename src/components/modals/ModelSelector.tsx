@@ -1,5 +1,5 @@
 import { useSelector } from '@legendapp/state/react'
-import type { Model, Provider } from '@opencode-ai/sdk'
+import type { Model } from '@opencode-ai/sdk'
 import { RefreshCw, X } from '@tamagui/lucide-icons'
 import { RadioGroup } from '@tamagui/radio-group'
 import { Sheet } from '@tamagui/sheet'
@@ -7,13 +7,14 @@ import React, { useEffect, useState } from 'react'
 import { Button, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
 import { store$ } from '../../store'
 import { actions } from '../../store/actions'
+import { allModels, findProviderForModel } from '../../store/computed'
 import { debug } from '../../utils/debug'
 
 export interface ModelSelectorProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   selectedModel: string
-  onModelSelect: (modelId: string) => void
+  onModelSelect: (modelId: string, providerId: string) => void
 }
 
 export function ModelSelector({
@@ -29,27 +30,24 @@ export function ModelSelector({
     Math.random().toString(36).substring(2, 9)
   )
 
-  // Create available models from providers (deduplicated by model ID)
-  const availableModels = providers
-    .flatMap((provider: Provider) =>
-      provider.models ? Object.values(provider.models) : []
-    )
-    .filter(
-      (model, index, array) => index === array.findIndex(m => m.id === model.id)
-    )
+  // Get all models from computed value
+  const availableModels = useSelector(allModels)
 
   // Load models when modal opens if not already loaded
   useEffect(() => {
     if (open && providers.length === 0 && !isLoading) {
-      actions.connection.refreshProviders().catch((error: Error) => {
-        debug.warn('Failed to refresh providers in ModelSelector:', error)
+      actions.models.loadProviders().catch((error: Error) => {
+        debug.warn('Failed to load providers in ModelSelector:', error)
       })
     }
   }, [open, providers.length, isLoading])
 
   const handleModelSelect = (modelId: string) => {
-    onModelSelect(modelId)
-    onOpenChange(false)
+    const provider = findProviderForModel(modelId)
+    if (provider) {
+      onModelSelect(modelId, provider.id)
+      onOpenChange(false)
+    }
   }
 
   const handleClose = () => {
@@ -58,24 +56,20 @@ export function ModelSelector({
 
   const handleRefresh = async () => {
     try {
-      await actions.connection.refreshProviders()
+      await actions.models.loadProviders(true) // Force refresh
     } catch (err) {
       // Error is handled by the store actions
-      debug.error('Failed to refresh providers:', err)
+      debug.error('Failed to load providers:', err)
     }
   }
 
   // Helper function to check if a model is the API-provided default for its provider
   const isDefaultModel = (model: Model): boolean => {
-    const provider = providers.find(
-      (p: Provider) =>
-        p.models &&
-        Object.values(p.models).some((m: Model) => m.id === model.id)
-    )
+    const provider = findProviderForModel(model.id)
     if (!provider?.models) return false
 
     // Check if this model is the API-provided default for this provider
-    const defaults = store$.models.defaults.get()
+    const defaults = store$.models.default.get()
     const defaultModelId = defaults[provider.id]
 
     return defaultModelId === model.id
@@ -92,9 +86,7 @@ export function ModelSelector({
 
   const groupedModels = nonDefaultModels.reduce(
     (acc: Record<string, Model[]>, model: Model) => {
-      const provider = providers.find(
-        p => p.models && Object.values(p.models).some(m => m.id === model.id)
-      )
+      const provider = findProviderForModel(model.id)
       const providerName = provider?.name || provider?.id || 'Unknown'
       if (!acc[providerName]) {
         acc[providerName] = []
@@ -121,9 +113,7 @@ export function ModelSelector({
     section?: 'default' | 'provider'
   }) => {
     // Get provider name for this model
-    const modelProvider = providers.find(
-      p => p.models && Object.values(p.models).some(m => m.id === model.id)
-    )
+    const modelProvider = findProviderForModel(model.id)
     const providerName = modelProvider?.name || modelProvider?.id || 'Unknown'
 
     return (
