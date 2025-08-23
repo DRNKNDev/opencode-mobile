@@ -8,6 +8,7 @@ import 'react-native-url-polyfill/auto'
 import { ThemeStatusBar } from '../src/components/ui/ThemeStatusBar'
 import { store$ } from '../src/store'
 import { actions } from '../src/store/actions'
+import { debug } from '../src/utils/debug'
 import config from '../tamagui.config'
 // Import sync service to initialize it
 import '../src/store/sync'
@@ -15,9 +16,12 @@ import '../src/store/sync'
 function AppContent() {
   const currentTheme = useSelector(store$.theme)
 
-  // Initialize connection from storage on app start
+  // Auto-reconnect on app start if we have a stored URL
   useEffect(() => {
-    actions.connection.initializeFromStorage()
+    actions.connection.connect().catch(error => {
+      debug.warn('Auto-reconnect failed:', error)
+      // User will need to manually connect
+    })
   }, [])
 
   return (
