@@ -152,7 +152,13 @@ const ensureAgentSelected = async (): Promise<Agent[]> => {
 export const actions = {
   // Connection actions
   connection: {
-    connect: async (serverUrl: string) => {
+    connect: async (serverUrl?: string) => {
+      // Use provided URL or fall back to stored URL
+      const url = serverUrl || store$.connection.serverUrl.get()
+      if (!url) {
+        throw new Error('No server URL available')
+      }
+
       // Prevent multiple simultaneous connections
       if (store$.connection.status.get() === 'connecting') {
         return
@@ -160,25 +166,26 @@ export const actions = {
 
       store$.connection.isLoading.set(true)
       store$.connection.status.set('connecting')
-      store$.connection.serverUrl.set(serverUrl)
+      store$.connection.serverUrl.set(url)
       store$.connection.error.set(null)
 
       try {
         // Validate URL format
-        const url = new URL(serverUrl)
-        if (!['http:', 'https:'].includes(url.protocol)) {
+        const validatedUrl = new URL(url)
+        if (!['http:', 'https:'].includes(validatedUrl.protocol)) {
           throw new Error('Invalid protocol. Use http:// or https://')
         }
 
         // Initialize OpenCode service
         const config: OpenCodeConfig = {
-          baseURL: serverUrl,
+          baseURL: url,
         }
 
         openCodeService.initialize(config)
 
-        // Test connection by getting app info
-        await openCodeService.getAppInfo()
+        // Test connection and get app info
+        const appInfo = await openCodeService.getAppInfo()
+        store$.connection.appInfo.set(appInfo)
 
         // Fetch and setup agents
         await ensureAgentSelected()
@@ -186,6 +193,14 @@ export const actions = {
         // Update store with successful connection
         store$.connection.status.set('connected')
         store$.connection.lastConnected.set(new Date())
+
+        // Load providers and sessions in background (respecting cache)
+        Promise.allSettled([
+          actions.connection.refreshProviders(),
+          actions.sessions.loadSessions(),
+        ]).catch(error => {
+          debug.warn('Failed to load initial data:', error)
+        })
       } catch (error) {
         setActionError(error, 'Connection failed', store$.connection.error.set)
         store$.connection.status.set('error')
@@ -257,80 +272,6 @@ export const actions = {
         throw error
       } finally {
         store$.models.isLoading.set(false)
-      }
-    },
-
-    reconnect: async () => {
-      const serverUrl = store$.connection.serverUrl.get()
-      if (!serverUrl) {
-        throw new Error('No server URL to reconnect to')
-      }
-      await actions.connection.connect(serverUrl)
-    },
-
-    initializeFromStorage: async () => {
-      try {
-        // Check if we have a persisted server URL
-        const serverUrl = store$.connection.serverUrl.get()
-
-        if (serverUrl) {
-          // Attempt to connect to the stored server URL
-          await actions.connection.connect(serverUrl)
-
-          // Fetch app info after successful connection
-          await actions.connection.fetchAppInfo()
-
-          // Load sessions and models in the background after successful connection
-          setTimeout(() => {
-            // Only call loadSessions if cache is stale
-            const sessionsLastFetched = store$.cache.sessionsLastFetched.get()
-            if (!isCacheValid(sessionsLastFetched, CACHE_TTL.sessions)) {
-              actions.sessions.loadSessions().catch(error => {
-                debug.warn(
-                  'Failed to load sessions during initialization:',
-                  error
-                )
-              })
-            }
-
-            // Only call refreshProviders if cache is stale
-            const providersLastFetched = store$.cache.providersLastFetched.get()
-            if (!isCacheValid(providersLastFetched, CACHE_TTL.providers)) {
-              actions.connection.refreshProviders().catch(error => {
-                debug.warn(
-                  'Failed to refresh providers during initialization:',
-                  error
-                )
-              })
-            }
-          }, 0)
-        }
-      } catch (error) {
-        debug.warn('Failed to initialize connection from storage:', error)
-      }
-    },
-
-    fetchAppInfo: async () => {
-      if (
-        store$.connection.status.get() !== 'connected' ||
-        !openCodeService.isInitialized()
-      ) {
-        debug.warn('Cannot fetch app info: not connected')
-        return
-      }
-
-      try {
-        const appInfo = await openCodeService.getAppInfo()
-        store$.connection.appInfo.set(appInfo)
-        debug.info('App info fetched successfully:', {
-          hostname: appInfo.hostname,
-          git: appInfo.git,
-          root: appInfo.path.root,
-        })
-      } catch (error) {
-        debug.warn('Failed to fetch app info:', error)
-        // Don't throw error to avoid blocking app initialization
-        store$.connection.appInfo.set(null)
       }
     },
   },
