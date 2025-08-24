@@ -3,7 +3,7 @@ import { ChevronRight } from '@tamagui/lucide-icons'
 import React from 'react'
 import { Card, Text, XStack, YStack } from 'tamagui'
 import { formatContextualDate } from '../../utils/dateFormatting'
-import type { TimePeriod } from '../../utils/sessionGrouping'
+import type { TimePeriod } from '../../utils/dateFormatting'
 
 export interface SessionCardProps {
   session: Session

@@ -20,9 +20,9 @@ import {
   projectName,
   selectedAgent,
   selectedModel,
-  sessionsWithHeaders,
+  sessionListItems,
 } from '../store/computed'
-import type { ListItem, SessionGroup } from '../utils/sessionGrouping'
+import type { SessionListItem } from '../store/computed'
 
 export default function SessionListScreen() {
   const router = useRouter()
@@ -34,7 +34,7 @@ export default function SessionListScreen() {
   const connected = useSelector(isConnected)
   const model = useSelector(selectedModel)
   const currentAgent = useSelector(selectedAgent)
-  const listItems = useSelector(sessionsWithHeaders)
+  const listItems = useSelector(sessionListItems)
   const currentAppInfo = useSelector(appInfo)
   const isGitRepository = useSelector(isGitRepo)
   const currentProjectName = useSelector(projectName)
@@ -108,10 +108,10 @@ export default function SessionListScreen() {
     }
   }
 
-  const renderItem = ({ item }: { item: ListItem }) => {
+  const renderItem = ({ item }: { item: SessionListItem }) => {
     if (item.type === 'header') {
-      const group = item.data as SessionGroup
-      return <SectionHeader title={group.title} isTablet={isTablet} />
+      const headerData = item.data as { title: string; id: string }
+      return <SectionHeader title={headerData.title} isTablet={isTablet} />
     } else {
       const session = item.data as Session
       return (
@@ -124,7 +124,7 @@ export default function SessionListScreen() {
     }
   }
 
-  const keyExtractor = (item: ListItem) => item.key
+  const keyExtractor = (item: SessionListItem) => item.key
 
   const renderEmptyState = () => (
     <YStack
