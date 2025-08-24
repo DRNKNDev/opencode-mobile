@@ -1,4 +1,10 @@
-import { TimePeriod } from './sessionGrouping'
+export enum TimePeriod {
+  TODAY = 'today',
+  YESTERDAY = 'yesterday',
+  LAST_7_DAYS = 'last7days',
+  LAST_30_DAYS = 'last30days',
+  MONTH = 'month', // For older items (grouped by month/year)
+}
 
 /**
  * Main function for context-aware date formatting based on group type
@@ -26,8 +32,6 @@ export function formatContextualDate(
       return formatShortDateAndTime(date)
     case TimePeriod.MONTH:
       return formatDayOfMonth(date)
-    case TimePeriod.YEAR:
-      return formatMonthAndDay(date)
     default:
       // Fallback to the original format logic
       return formatFallback(date, now)
