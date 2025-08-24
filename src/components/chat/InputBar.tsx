@@ -1,17 +1,9 @@
 import { useSelector } from '@legendapp/state/react'
-import {
-  ArrowUpCircle,
-  AsteriskSquare,
-  ChevronDown,
-  Code,
-  ListTodo,
-  Settings,
-  StopCircle,
-} from '@tamagui/lucide-icons'
+import { ArrowUpCircle, ChevronDown, StopCircle } from '@tamagui/lucide-icons'
 import React, { useState } from 'react'
 import { Button, Text, XStack, YStack } from 'tamagui'
 import { selectedAgent, selectedModel } from '../../store/computed'
-import { AgentSelector } from '../modals/AgentSelector'
+import { AgentSelector, getAgentInfo } from '../modals/AgentSelector'
 import { ModelSelector } from '../modals/ModelSelector'
 import { TextArea } from '../ui/TextArea'
 
@@ -91,15 +83,11 @@ export function InputBar({
             }}
             aria-label="Select agent"
           >
-            {currentAgent?.name === 'general' ? (
-              <AsteriskSquare size={16} color="$purple10" />
-            ) : currentAgent?.name === 'build' ? (
-              <Code size={16} color="$blue10" />
-            ) : currentAgent?.name === 'plan' ? (
-              <ListTodo size={16} color="$orange10" />
-            ) : (
-              <Settings size={16} color="$gray10" />
-            )}
+            {(() => {
+              const agentInfo = getAgentInfo(currentAgent?.name || '')
+              const Icon = agentInfo.icon
+              return <Icon size={16} color={agentInfo.color} />
+            })()}
           </Button>
 
           <Button
