@@ -6,13 +6,16 @@ import type {
   SessionMessageResponse,
 } from '@opencode-ai/sdk'
 import type { ConnectionStatus } from '../services/types'
-import {
-  flattenGroupsForList,
-  groupSessionsByTime,
-  type ListItem,
-  type SessionGroup,
-} from '../utils/sessionGrouping'
+import { TimePeriod } from '../utils/dateFormatting'
 import { store$ } from './index'
+
+// Session list item interface for LegendList
+export interface SessionListItem {
+  type: 'header' | 'session'
+  data: { title: string; id: string } | Session
+  key: string
+  groupType?: TimePeriod
+}
 
 // Connection computed values
 export const isConnected = computed(
@@ -118,22 +121,70 @@ export const lastMessage = computed((): SessionMessageResponse | null => {
 // Check if we're currently sending a message
 export const isSendingMessage = computed(() => store$.messages.isSending.get())
 
-// Session list sorted by most recent
-export const sessionsSortedByTime = computed((): Session[] => {
+// Session list items with headers for LegendList
+export const sessionListItems = computed((): SessionListItem[] => {
   const sessions = store$.sessions.list.get()
-  return [...sessions].sort((a, b) => b.time.updated - a.time.updated)
-})
+  const sorted = [...sessions].sort((a, b) => b.time.updated - a.time.updated)
 
-// Sessions grouped by time periods
-export const sessionsGroupedByTime = computed((): SessionGroup[] => {
-  const sessions = sessionsSortedByTime.get()
-  return groupSessionsByTime(sessions)
-})
+  const items: SessionListItem[] = []
+  let currentPeriod: string | null = null
 
-// Flattened list of sessions with section headers for LegendList
-export const sessionsWithHeaders = computed((): ListItem[] => {
-  const groups = sessionsGroupedByTime.get()
-  return flattenGroupsForList(groups)
+  sorted.forEach(session => {
+    // Determine time period and header
+    const now = Date.now()
+    const sessionDate = new Date(session.time.updated)
+    const age = now - session.time.updated
+    const days = Math.floor(age / (1000 * 60 * 60 * 24))
+
+    let period: TimePeriod
+    let periodKey: string
+    let title: string
+
+    if (days === 0) {
+      period = TimePeriod.TODAY
+      periodKey = period
+      title = 'Today'
+    } else if (days === 1) {
+      period = TimePeriod.YESTERDAY
+      periodKey = period
+      title = 'Yesterday'
+    } else if (days <= 7) {
+      period = TimePeriod.LAST_7_DAYS
+      periodKey = period
+      title = 'Last 7 days'
+    } else if (days <= 30) {
+      period = TimePeriod.LAST_30_DAYS
+      periodKey = period
+      title = 'Last 30 days'
+    } else {
+      period = TimePeriod.MONTH
+      periodKey = `month-${sessionDate.toISOString().slice(0, 7)}`
+      title = sessionDate.toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric',
+      })
+    }
+
+    // Add header when period changes
+    if (periodKey !== currentPeriod) {
+      items.push({
+        type: 'header',
+        data: { title, id: periodKey },
+        key: `header-${periodKey}`,
+      })
+      currentPeriod = periodKey
+    }
+
+    // Add session
+    items.push({
+      type: 'session',
+      data: session,
+      key: `session-${session.id}`,
+      groupType: period,
+    })
+  })
+
+  return items
 })
 
 // Connection status for UI
@@ -188,9 +239,7 @@ export const computed$ = {
   currentSessionHasMessages,
   lastMessage,
   isSendingMessage,
-  sessionsSortedByTime,
-  sessionsGroupedByTime,
-  sessionsWithHeaders,
+  sessionListItems,
   connectionStatus,
   appInfo,
   isGitRepo,
