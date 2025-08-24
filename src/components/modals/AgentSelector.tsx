@@ -1,6 +1,12 @@
 import { useSelector } from '@legendapp/state/react'
 import type { Agent } from '@opencode-ai/sdk'
-import { AsteriskSquare, Code, ListTodo, Settings, X } from '@tamagui/lucide-icons'
+import {
+  AsteriskSquare,
+  Code,
+  ListTodo,
+  Settings,
+  X,
+} from '@tamagui/lucide-icons'
 import { RadioGroup } from '@tamagui/radio-group'
 import { Sheet } from '@tamagui/sheet'
 import React, { useState } from 'react'
