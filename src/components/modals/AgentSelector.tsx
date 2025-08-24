@@ -1,12 +1,6 @@
 import { useSelector } from '@legendapp/state/react'
 import type { Agent } from '@opencode-ai/sdk'
-import {
-  AsteriskSquare,
-  Code,
-  ListTodo,
-  Settings,
-  X,
-} from '@tamagui/lucide-icons'
+import { AsteriskSquare, Code, ListTodo, Settings, X } from '@tamagui/lucide-icons'
 import { RadioGroup } from '@tamagui/radio-group'
 import { Sheet } from '@tamagui/sheet'
 import React, { useState } from 'react'
@@ -14,6 +8,62 @@ import { Button, Text, XStack, YStack } from 'tamagui'
 import { store$ } from '../../store'
 import { actions } from '../../store/actions'
 import { availableAgents, selectedAgent } from '../../store/computed'
+
+export function getAgentInfo(agent: Agent | string) {
+  const name = typeof agent === 'string' ? agent : agent.name
+
+  switch (name) {
+    case 'general':
+      return {
+        displayName: 'General Agent',
+        description:
+          'Research complex questions, search code, and execute multi-step tasks',
+        icon: AsteriskSquare,
+        color: '$purple10',
+      }
+    case 'build':
+      return {
+        displayName: 'Build Agent',
+        description:
+          'Default agent with all tools enabled for development work',
+        icon: Code,
+        color: '$blue10',
+      }
+    case 'plan':
+      return {
+        displayName: 'Plan Agent',
+        description:
+          'Analyze and plan without modifying files or running commands',
+        icon: ListTodo,
+        color: '$orange10',
+      }
+    default: {
+      // Handle custom agents
+      const displayName =
+        typeof agent === 'string'
+          ? agent.charAt(0).toUpperCase() + agent.slice(1) + ' Agent'
+          : agent.name.charAt(0).toUpperCase() + agent.name.slice(1) + ' Agent'
+
+      let description =
+        'Custom agent with full tool access for specialized tasks'
+      if (typeof agent === 'object' && agent.tools) {
+        const deniedTools = Object.entries(agent.tools)
+          .filter(([_, enabled]) => !enabled)
+          .map(([tool]) => tool)
+        if (deniedTools.length > 0) {
+          description = `Custom agent with restricted access - ${deniedTools.join(', ')} disabled`
+        }
+      }
+
+      return {
+        displayName,
+        description,
+        icon: Settings,
+        color: '$gray10',
+      }
+    }
+  }
+}
 
 export interface AgentSelectorProps {
   open: boolean
@@ -31,82 +81,9 @@ export function AgentSelector({ open, onOpenChange }: AgentSelectorProps) {
   const isLoadingAgents = useSelector(store$.agents.isLoading)
   const agentsError = useSelector(store$.agents.error)
 
-  // UI helper functions
-  const getDisplayName = (agent: Agent) => {
-    switch (agent.name) {
-      case 'general':
-        return 'General Agent'
-      case 'build':
-        return 'Build Agent'
-      case 'plan':
-        return 'Plan Agent'
-      default:
-        return (
-          agent.name.charAt(0).toUpperCase() + agent.name.slice(1) + ' Agent'
-        )
-    }
-  }
-
-  const getDescription = (agent: Agent) => {
-    if (agent.description) {
-      return agent.description
-    }
-
-    switch (agent.name) {
-      case 'general':
-        return 'General-purpose agent for diverse tasks'
-      case 'build':
-        return 'Write, edit, and execute code with full tool access'
-      case 'plan':
-        return 'Read and analyze code without making changes'
-      default: {
-        const deniedTools = Object.entries(agent.tools || {})
-          .filter(([_, enabled]) => !enabled)
-          .map(([tool, _]) => tool)
-
-        if (deniedTools.length === 0) {
-          return 'Custom agent with full tool access'
-        } else {
-          return `Custom agent - ${deniedTools.join(', ')} disabled`
-        }
-      }
-    }
-  }
-
-  const getIcon = (agent: Agent) => {
-    switch (agent.name) {
-      case 'general':
-        return AsteriskSquare
-      case 'build':
-        return Code
-      case 'plan':
-        return ListTodo
-      default:
-        return Settings
-    }
-  }
-
-  const getColor = (agent: Agent) => {
-    switch (agent.name) {
-      case 'general':
-        return '$purple10'
-      case 'build':
-        return '$blue10'
-      case 'plan':
-        return '$orange10'
-      default:
-        return '$gray10'
-    }
-  }
-
-  const isAvailable = (agent: Agent) => {
-    // All agents from API are considered available
-    return true
-  }
-
   const handleAgentSelect = (agentName: string) => {
     const agent = agents.find(a => a.name === agentName)
-    if (agent && isAvailable(agent)) {
+    if (agent) {
       actions.agents.selectAgent(agentName)
       onOpenChange(false)
     }
@@ -189,9 +166,9 @@ export function AgentSelector({ open, onOpenChange }: AgentSelectorProps) {
                     // Ensure agent has valid name
                     if (!agent?.name) return null
 
-                    const Icon = getIcon(agent)
-                    const available = isAvailable(agent)
-                    const color = getColor(agent)
+                    const agentInfo = getAgentInfo(agent)
+                    const Icon = agentInfo.icon
+                    const color = agentInfo.color
 
                     return (
                       <YStack key={agent.name}>
@@ -201,31 +178,20 @@ export function AgentSelector({ open, onOpenChange }: AgentSelectorProps) {
                           padding="$3"
                           borderRadius="$4"
                           backgroundColor="$backgroundHover"
-                          opacity={available ? 1 : 0.5}
-                          pressStyle={
-                            available
-                              ? {
-                                  backgroundColor: '$backgroundPress',
-                                }
-                              : undefined
-                          }
-                          onPress={() =>
-                            available && handleAgentSelect(agent.name)
-                          }
+                          pressStyle={{
+                            backgroundColor: '$backgroundPress',
+                          }}
+                          onPress={() => handleAgentSelect(agent.name)}
                         >
                           <RadioGroup.Item
                             value={agent.name}
                             id={`${instanceId}-${agent.name}`}
                             size="$4"
-                            disabled={!available}
                           >
                             <RadioGroup.Indicator />
                           </RadioGroup.Item>
 
-                          <Icon
-                            size={20}
-                            color={available ? color : '$color11'}
-                          />
+                          <Icon size={20} color={color} />
 
                           <YStack flex={1}>
                             <XStack alignItems="center" gap="$2">
@@ -238,20 +204,8 @@ export function AgentSelector({ open, onOpenChange }: AgentSelectorProps) {
                                     : '$color'
                                 }
                               >
-                                {getDisplayName(agent)}
+                                {agentInfo.displayName}
                               </Text>
-                              {!available && (
-                                <Text
-                                  fontSize="$2"
-                                  color="$color11"
-                                  backgroundColor="$backgroundHover"
-                                  paddingHorizontal="$2"
-                                  paddingVertical="$1"
-                                  borderRadius="$2"
-                                >
-                                  Coming Soon
-                                </Text>
-                              )}
                               {agent.builtIn && (
                                 <Text
                                   fontSize="$2"
@@ -266,7 +220,7 @@ export function AgentSelector({ open, onOpenChange }: AgentSelectorProps) {
                               )}
                             </XStack>
                             <Text fontSize="$3" color="$color11">
-                              {getDescription(agent)}
+                              {agentInfo.description}
                             </Text>
                             {agent.mode && (
                               <Text
