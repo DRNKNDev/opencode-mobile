@@ -28,85 +28,6 @@ const setActionError = (
   return message
 }
 
-// Helper function for fallback agents
-const getFallbackAgents = (): Agent[] => {
-  return [
-    {
-      name: 'build',
-      description: 'Write, edit, and execute code with full tool access',
-      mode: 'primary' as const,
-      builtIn: true,
-      tools: {},
-      permission: {
-        edit: 'allow' as const,
-        bash: {},
-      },
-      options: {},
-    },
-    {
-      name: 'plan',
-      description: 'Read and analyze code without making changes',
-      mode: 'primary' as const,
-      builtIn: true,
-      tools: {
-        write: false,
-        edit: false,
-        bash: false,
-      },
-      permission: {
-        edit: 'deny' as const,
-        bash: {},
-      },
-      options: {},
-    },
-  ]
-}
-
-// Simple helper to select default agent
-const selectDefaultAgent = (agents: Agent[]) => {
-  if (!agents?.length) return null
-  // Prefer build agent if available
-  return agents.find(a => a.name === 'build')?.name || agents[0]?.name || null
-}
-
-// Helper to avoid duplicating agent selection logic
-const ensureAgentSelected = async (): Promise<Agent[]> => {
-  // Check if agents exist and cache is valid
-  const existingAgents = store$.agents.available.get()
-  const lastFetched = store$.cache.agentsLastFetched.get()
-
-  if (
-    existingAgents.length > 0 &&
-    isCacheValid(lastFetched, CACHE_TTL.agents)
-  ) {
-    debug.info('Using cached agents, skipping API call')
-    return existingAgents
-  }
-
-  let agents: Agent[]
-
-  try {
-    agents = await openCodeService.getAgents()
-  } catch (agentError) {
-    debug.warn('Failed to fetch agents from API, using fallback:', agentError)
-    agents = getFallbackAgents()
-  }
-
-  store$.agents.available.set(agents)
-  store$.cache.agentsLastFetched.set(Date.now())
-
-  // Auto-select a default agent if none is currently selected
-  const currentSelected = store$.agents.selected.get()
-  if (!currentSelected) {
-    const selected = selectDefaultAgent(agents)
-    if (selected) {
-      store$.agents.selected.set(selected)
-    }
-  }
-
-  return agents
-}
-
 export const actions = {
   // Connection actions
   connection: {
@@ -145,20 +66,18 @@ export const actions = {
         const appInfo = await openCodeService.getAppInfo()
         store$.connection.appInfo.set(appInfo)
 
-        // Fetch and setup agents
-        await ensureAgentSelected()
-
-        // Update store with successful connection
-        store$.connection.status.set('connected')
-        store$.connection.lastConnected.set(new Date())
-
-        // Load providers and sessions in background (respecting cache)
-        Promise.allSettled([
+        // Load initial data in parallel
+        await Promise.allSettled([
+          actions.agents.loadAgents(),
           actions.models.loadProviders(),
           actions.sessions.loadSessions(),
         ]).catch(error => {
           debug.warn('Failed to load initial data:', error)
         })
+
+        // Update store with successful connection
+        store$.connection.status.set('connected')
+        store$.connection.lastConnected.set(new Date())
       } catch (error) {
         setActionError(error, 'Connection failed', store$.connection.error.set)
         store$.connection.status.set('error')
@@ -536,7 +455,7 @@ export const actions = {
 
   // Agent actions
   agents: {
-    loadAgents: async () => {
+    loadAgents: async (forceRefresh = false) => {
       if (
         store$.connection.status.get() !== 'connected' ||
         !openCodeService.isInitialized()
@@ -544,15 +463,63 @@ export const actions = {
         throw new Error('Not connected to server')
       }
 
+      // Check if agents exist and cache is valid (unless force refresh)
+      if (!forceRefresh) {
+        const existingAgents = store$.agents.available.get()
+        const lastFetched = store$.cache.agentsLastFetched.get()
+
+        if (
+          existingAgents.length > 0 &&
+          isCacheValid(lastFetched, CACHE_TTL.agents)
+        ) {
+          debug.info('Using cached agents, skipping API call')
+          return
+        }
+      }
+
       store$.agents.isLoading.set(true)
       store$.agents.error.set(null)
 
       try {
-        await ensureAgentSelected()
+        const agents = await openCodeService.getAgents()
+        store$.agents.available.set(agents)
+        store$.cache.agentsLastFetched.set(Date.now())
+
+        // Auto-select build agent if none selected
+        const currentSelected = store$.agents.selected.get()
+        if (!currentSelected) {
+          store$.agents.selected.set('build')
+        }
       } catch (error) {
+        debug.warn(
+          'Failed to fetch agents from API, using build agent only:',
+          error
+        )
+
+        // Use only the build agent as fallback
+        const buildAgent: Agent = {
+          name: 'build',
+          description: 'Write, edit, and execute code with full tool access',
+          mode: 'primary' as const,
+          builtIn: true,
+          tools: {},
+          permission: {
+            edit: 'allow' as const,
+            bash: {},
+          },
+          options: {},
+        }
+
+        store$.agents.available.set([buildAgent])
+        store$.cache.agentsLastFetched.set(Date.now())
+
+        if (!store$.agents.selected.get()) {
+          store$.agents.selected.set('build')
+        }
+
         setActionError(
           error,
-          'Failed to load agents from server, using fallback agents',
+          'Failed to load agents from server, using build agent only',
           store$.agents.error.set
         )
       } finally {
@@ -562,10 +529,6 @@ export const actions = {
 
     selectAgent: (agentName: string) => {
       store$.agents.selected.set(agentName)
-    },
-
-    refreshAgents: async () => {
-      await actions.agents.loadAgents()
     },
   },
 
