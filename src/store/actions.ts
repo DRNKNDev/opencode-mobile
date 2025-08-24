@@ -395,11 +395,7 @@ export const actions = {
   // Model actions
   models: {
     loadProviders: async (forceRefresh = false) => {
-      // Check if we're connected
-      if (
-        store$.connection.status.get() !== 'connected' ||
-        !openCodeService.isInitialized()
-      ) {
+      if (!openCodeService.isInitialized()) {
         throw new Error('Not connected to server')
       }
 
@@ -456,10 +452,7 @@ export const actions = {
   // Agent actions
   agents: {
     loadAgents: async (forceRefresh = false) => {
-      if (
-        store$.connection.status.get() !== 'connected' ||
-        !openCodeService.isInitialized()
-      ) {
+      if (!openCodeService.isInitialized()) {
         throw new Error('Not connected to server')
       }
 
