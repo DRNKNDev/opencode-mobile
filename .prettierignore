@@ -1,19 +1,14 @@
-# Ignore artifacts:
+node_modules
+**/node_modules
+dist
+**/dist
 build
+**/build
 coverage
-
-# Expo/React Native specific
-.expo/
-dist/
-node_modules/
-*.log
-*.tgz
-
-# Platform specific
-android/
-ios/
-web-build/
-
-# Generated files
-*.d.ts
-.tamagui/
+**/.expo
+**/.tamagui
+*.tsbuildinfo
+**/ios/**
+**/android/**
+**/*.podspec.json
+expo-env.d.ts
