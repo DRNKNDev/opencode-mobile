@@ -1,4 +1,4 @@
-import type { Agent, SessionMessageResponse } from '@opencode-ai/sdk'
+import type { Agent, Session, SessionMessageResponse } from '@opencode-ai/sdk'
 import { openCodeService, type OpenCodeConfig } from '../services/opencode'
 import { debug } from '../utils/debug'
 import { store$ } from './index'
@@ -145,13 +145,31 @@ export const actions = {
       }
     },
 
+    upsertSession: (session: Session) => {
+      store$.sessions.list.set(sessions => {
+        const existingIndex = sessions.findIndex(s => s.id === session.id)
+
+        if (existingIndex >= 0) {
+          // Update existing session
+          const updated = [...sessions]
+          updated[existingIndex] = session
+          return updated
+        } else {
+          // Add new session at the beginning (most recent first)
+          return [session, ...sessions]
+        }
+      })
+    },
+
     createSession: async () => {
       store$.sessions.isCreating.set(true)
 
       try {
         const session = await openCodeService.createSession()
-        // Don't add to store here - let SSE handle it via session.updated event
+
+        actions.sessions.upsertSession(session)
         store$.sessions.current.set(session.id)
+
         return session
       } catch (error) {
         setActionError(
