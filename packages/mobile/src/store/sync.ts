@@ -247,22 +247,12 @@ class SyncService {
       share: sessionInfo.share,
     }
 
-    // Update the session in the store
-    store$.sessions.list.set(sessions => {
-      const existingIndex = sessions.findIndex(s => s.id === session.id)
-      let updated: typeof sessions
+    actions.sessions.upsertSession(session)
 
-      if (existingIndex >= 0) {
-        // Update existing session
-        updated = [...sessions]
-        updated[existingIndex] = session
-      } else {
-        // Add new session
-        updated = [...sessions, session]
-      }
-
-      return updated.sort((a, b) => b.time.updated - a.time.updated)
-    })
+    // Sort sessions after update to maintain proper order
+    store$.sessions.list.set(sessions =>
+      [...sessions].sort((a, b) => b.time.updated - a.time.updated)
+    )
   }
 }
 
