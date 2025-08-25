@@ -1,11 +1,13 @@
 import { batch } from '@legendapp/state'
 import type { Event } from '@opencode-ai/sdk'
+import EventSource from 'react-native-sse'
 import { openCodeService } from '../services/opencode'
+import { debug } from '../utils/debug'
 import { actions } from './actions'
 import { store$ } from './index'
 
 class SyncService {
-  private eventStream: AsyncGenerator<Event> | null = null
+  private eventSource: EventSource<never> | null = null
   private isListening = false
 
   async startSync() {
@@ -15,24 +17,71 @@ class SyncService {
 
     try {
       this.isListening = true
-      this.eventStream = openCodeService.streamEvents()
+      this.eventSource = openCodeService.createEventSource()
 
-      for await (const event of this.eventStream) {
-        await this.handleEvent(event)
+      if (!this.eventSource) {
+        throw new Error('Failed to create EventSource')
       }
+
+      // Connection opened
+      this.eventSource.addEventListener('open', () => {
+        debug.success('SSE: Connection established')
+        batch(() => {
+          store$.connection.status.set('connected')
+          store$.connection.lastConnected.set(new Date())
+          store$.connection.error.set(null)
+        })
+      })
+
+      // Message received
+      this.eventSource.addEventListener('message', async (event: any) => {
+        debug.log('SSE: Received message', event.data)
+
+        const data = event.data
+        if (data && data !== '[DONE]') {
+          try {
+            const eventObj: Event = JSON.parse(data)
+            await this.handleEvent(eventObj)
+          } catch (e) {
+            debug.error('SSE: Failed to parse event JSON', e)
+            // Continue processing other events - don't break the connection
+          }
+        } else if (data === '[DONE]') {
+          debug.log('SSE: Stream completed with DONE marker')
+        }
+      })
+
+      // Connection error
+      this.eventSource.addEventListener('error', (event: any) => {
+        debug.error('SSE: Connection error', event)
+        store$.connection.status.set('disconnected')
+        store$.connection.error.set(event.message || 'SSE connection failed')
+      })
+
+      // Connection closed
+      this.eventSource.addEventListener('close', () => {
+        debug.log('SSE: Connection closed')
+        store$.connection.status.set('disconnected')
+        this.isListening = false
+      })
     } catch (error) {
-      console.error('SSE connection error:', error)
+      console.error('Failed to start sync:', error)
       this.isListening = false
 
+      store$.connection.status.set('disconnected')
       store$.connection.error.set(
-        error instanceof Error ? error.message : 'SSE connection failed'
+        error instanceof Error ? error.message : 'Failed to start sync'
       )
     }
   }
 
   stopSync() {
     this.isListening = false
-    this.eventStream = null
+
+    if (this.eventSource) {
+      this.eventSource.close()
+      this.eventSource = null
+    }
   }
 
   private async handleEvent(event: Event) {
@@ -242,7 +291,12 @@ export const syncService = new SyncService()
 store$.connection.status.onChange(({ value }) => {
   if (value === 'connected') {
     syncService.startSync()
-  } else {
+  }
+})
+
+// Only stop sync when server URL is cleared (explicit disconnect)
+store$.connection.serverUrl.onChange(({ value }) => {
+  if (!value) {
     syncService.stopSync()
   }
 })
