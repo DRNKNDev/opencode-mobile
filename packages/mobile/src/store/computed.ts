@@ -21,20 +21,6 @@ export interface SessionListItem {
 export const isConnected = computed(
   () => store$.connection.status.get() === 'connected'
 )
-export const isConnecting = computed(
-  () => store$.connection.status.get() === 'connecting'
-)
-export const isDisconnected = computed(
-  () => store$.connection.status.get() === 'disconnected'
-)
-export const hasConnectionError = computed(
-  () => store$.connection.status.get() === 'error'
-)
-export const isReady = computed(
-  () =>
-    store$.connection.status.get() === 'connected' &&
-    !store$.connection.isLoading.get()
-)
 
 // Current session messages
 export const currentMessages = computed((): SessionMessageResponse[] => {
@@ -210,10 +196,6 @@ export const projectName = computed((): string | null => {
 // Grouped computed exports for convenience
 export const computed$ = {
   isConnected,
-  isConnecting,
-  isDisconnected,
-  hasConnectionError,
-  isReady,
   currentMessages,
   currentSession,
   selectedModel,
