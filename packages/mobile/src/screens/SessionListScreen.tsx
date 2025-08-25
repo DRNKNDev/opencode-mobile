@@ -62,7 +62,7 @@ export default function SessionListScreen() {
     try {
       // Create the session first
       const newSession = await actions.sessions.createSession()
-      router.push(`/chat/${newSession.id}`)
+      router.push(`/chat/${newSession.id}?isNew=true`)
 
       actions.messages
         .sendMessage(newSession.id, messageContent)
@@ -74,6 +74,7 @@ export default function SessionListScreen() {
       // TODO: Show error toast
     }
   }
+
   const openSession = (session: Session) => {
     actions.sessions.selectSession(session.id)
     router.push(`/chat/${session.id}`)

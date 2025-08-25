@@ -24,13 +24,12 @@ import {
   currentSession,
   isConnected,
   isSendingMessage,
-  selectedAgent,
   selectedModel,
 } from '../store/computed'
 import { debug } from '../utils/debug'
 
 export default function ChatScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, isNew } = useLocalSearchParams<{ id: string; isNew?: string }>()
   const router = useRouter()
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
@@ -46,7 +45,6 @@ export default function ChatScreen() {
   const messages = useSelector(currentMessages)
   const session = useSelector(currentSession)
   const model = useSelector(selectedModel)
-  const currentAgent = useSelector(selectedAgent)
   const isSending = useSelector(isSendingMessage)
   const isAborting = useSelector(store$.messages.isAborting)
   const isLoading = useSelector(store$.messages.isLoading)
@@ -75,13 +73,12 @@ export default function ChatScreen() {
 
   // Set current session and load messages when id changes
   useEffect(() => {
-    if (id) {
-      // Load messages asynchronously without blocking UI
+    if (id && isNew !== 'true') {
       actions.messages.loadMessages(id).catch(error => {
         console.error('Failed to load messages:', error)
       })
     }
-  }, [id])
+  }, [id, isNew])
 
   // Auto-scroll when new assistant messages arrive (only if user was already near bottom)
   useEffect(() => {
