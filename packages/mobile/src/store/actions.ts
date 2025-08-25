@@ -306,10 +306,7 @@ export const actions = {
     },
 
     sendMessage: async (sessionId: string, content: string) => {
-      if (
-        store$.connection.status.get() !== 'connected' ||
-        !openCodeService.isInitialized()
-      ) {
+      if (store$.connection.status.get() !== 'connected') {
         throw new Error('Not connected to server')
       }
 
@@ -427,10 +424,6 @@ export const actions = {
   // Model actions
   models: {
     loadProviders: async (forceRefresh = false) => {
-      if (!openCodeService.isInitialized()) {
-        throw new Error('Not connected to server')
-      }
-
       // Check if providers exist and cache is valid (unless force refresh)
       if (!forceRefresh) {
         const existingProviders = store$.models.providers.get()
@@ -484,10 +477,6 @@ export const actions = {
   // Agent actions
   agents: {
     loadAgents: async (forceRefresh = false) => {
-      if (!openCodeService.isInitialized()) {
-        throw new Error('Not connected to server')
-      }
-
       // Check if agents exist and cache is valid (unless force refresh)
       if (!forceRefresh) {
         const existingAgents = store$.agents.available.get()
@@ -516,37 +505,8 @@ export const actions = {
           store$.agents.selected.set('build')
         }
       } catch (error) {
-        debug.warn(
-          'Failed to fetch agents from API, using build agent only:',
-          error
-        )
-
-        // Use only the build agent as fallback
-        const buildAgent: Agent = {
-          name: 'build',
-          description: 'Write, edit, and execute code with full tool access',
-          mode: 'primary' as const,
-          builtIn: true,
-          tools: {},
-          permission: {
-            edit: 'allow' as const,
-            bash: {},
-          },
-          options: {},
-        }
-
-        store$.agents.available.set([buildAgent])
-        store$.cache.agentsLastFetched.set(Date.now())
-
-        if (!store$.agents.selected.get()) {
-          store$.agents.selected.set('build')
-        }
-
-        setActionError(
-          error,
-          'Failed to load agents from server, using build agent only',
-          store$.agents.error.set
-        )
+        setActionError(error, 'Failed to load agents', store$.agents.error.set)
+        throw error
       } finally {
         store$.agents.isLoading.set(false)
       }
