@@ -101,17 +101,6 @@ export const hasAnyError = computed(
     !!store$.messages.error.get()
 )
 
-// Message states for current session
-export const currentSessionMessageCount = computed((): number => {
-  const messages = currentMessages.get()
-  return messages.length
-})
-
-export const currentSessionHasMessages = computed((): boolean => {
-  const messages = currentMessages.get()
-  return messages.length > 0
-})
-
 // Last message in current session
 export const lastMessage = computed((): SessionMessageResponse | null => {
   const messages = currentMessages.get()
@@ -234,8 +223,6 @@ export const computed$ = {
   isLightTheme,
   isAnyLoading,
   hasAnyError,
-  currentSessionMessageCount,
-  currentSessionHasMessages,
   lastMessage,
   isSendingMessage,
   sessionListItems,
