@@ -17,17 +17,6 @@ const isCacheValid = (lastFetched: number | null, ttl: number): boolean => {
   return Date.now() - lastFetched < ttl
 }
 
-// Simple helper for error handling
-const setActionError = (
-  error: unknown,
-  fallback: string,
-  setter: (msg: string) => void
-): string => {
-  const message = error instanceof Error ? error.message : fallback
-  setter(message)
-  return message
-}
-
 export const actions = {
   // Connection actions
   connection: {
@@ -79,7 +68,9 @@ export const actions = {
         store$.connection.status.set('connected')
         store$.connection.lastConnected.set(new Date())
       } catch (error) {
-        setActionError(error, 'Connection failed', store$.connection.error.set)
+        store$.connection.error.set(
+          error instanceof Error ? error.message : 'Connection failed'
+        )
         store$.connection.status.set('error')
 
         throw error
@@ -134,10 +125,8 @@ export const actions = {
         store$.sessions.list.set(sorted)
         store$.cache.sessionsLastFetched.set(Date.now())
       } catch (error) {
-        setActionError(
-          error,
-          'Failed to load sessions',
-          store$.sessions.error.set
+        store$.sessions.error.set(
+          error instanceof Error ? error.message : 'Failed to load sessions'
         )
         throw error
       } finally {
@@ -172,10 +161,8 @@ export const actions = {
 
         return session
       } catch (error) {
-        setActionError(
-          error,
-          'Failed to create session',
-          store$.sessions.error.set
+        store$.sessions.error.set(
+          error instanceof Error ? error.message : 'Failed to create session'
         )
         throw error
       } finally {
@@ -206,10 +193,8 @@ export const actions = {
           return updated
         })
       } catch (error) {
-        setActionError(
-          error,
-          'Failed to delete session',
-          store$.sessions.error.set
+        store$.sessions.error.set(
+          error instanceof Error ? error.message : 'Failed to delete session'
         )
         throw error
       }
@@ -231,10 +216,8 @@ export const actions = {
         debug.success(`Session shared successfully: ${result.url}`)
       } catch (error) {
         debug.error('❌ Failed to share session:', error)
-        setActionError(
-          error,
-          'Failed to share session',
-          store$.sessions.error.set
+        store$.sessions.error.set(
+          error instanceof Error ? error.message : 'Failed to share session'
         )
         throw error
       }
@@ -253,10 +236,8 @@ export const actions = {
           )
         )
       } catch (error) {
-        setActionError(
-          error,
-          'Failed to unshare session',
-          store$.sessions.error.set
+        store$.sessions.error.set(
+          error instanceof Error ? error.message : 'Failed to unshare session'
         )
         throw error
       }
@@ -294,10 +275,8 @@ export const actions = {
           [sessionId]: Date.now(),
         }))
       } catch (error) {
-        setActionError(
-          error,
-          'Failed to load messages',
-          store$.messages.error.set
+        store$.messages.error.set(
+          error instanceof Error ? error.message : 'Failed to load messages'
         )
         throw error
       } finally {
@@ -337,10 +316,8 @@ export const actions = {
           agentName
         )
       } catch (error) {
-        setActionError(
-          error,
-          'Failed to send message',
-          store$.messages.error.set
+        store$.messages.error.set(
+          error instanceof Error ? error.message : 'Failed to send message'
         )
         throw error
       } finally {
@@ -409,10 +386,8 @@ export const actions = {
         // Set both isSending and isAborting to false after successful abort
         store$.messages.isSending.set(false)
       } catch (error) {
-        setActionError(
-          error,
-          'Failed to abort session',
-          store$.messages.error.set
+        store$.messages.error.set(
+          error instanceof Error ? error.message : 'Failed to abort session'
         )
         throw error
       } finally {
@@ -449,10 +424,8 @@ export const actions = {
         store$.models.default.set(defaults || {})
         store$.cache.providersLastFetched.set(Date.now())
       } catch (error) {
-        setActionError(
-          error,
-          'Failed to load providers',
-          store$.models.error.set
+        store$.models.error.set(
+          error instanceof Error ? error.message : 'Failed to load providers'
         )
         throw error
       } finally {
@@ -505,7 +478,9 @@ export const actions = {
           store$.agents.selected.set('build')
         }
       } catch (error) {
-        setActionError(error, 'Failed to load agents', store$.agents.error.set)
+        store$.agents.error.set(
+          error instanceof Error ? error.message : 'Failed to load agents'
+        )
         throw error
       } finally {
         store$.agents.isLoading.set(false)
