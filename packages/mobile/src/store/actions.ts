@@ -325,42 +325,47 @@ export const actions = {
       }
     },
 
-    addMessage: (
+    upsertMessage: (
       sessionId: string,
-      messageResponse: SessionMessageResponse
+      messageId: string,
+      updater:
+        | SessionMessageResponse
+        | ((
+            current?: SessionMessageResponse
+          ) => SessionMessageResponse | undefined)
     ) => {
       const currentMessages = store$.messages.bySessionId[sessionId].get() || []
-
-      // Check if message already exists
-      const exists = currentMessages.some(
-        m => m.info.id === messageResponse.info.id
+      const existingMessageIndex = currentMessages.findIndex(
+        m => m.info.id === messageId
       )
-      if (exists) {
+
+      if (existingMessageIndex >= 0) {
         // Update existing message
+        const existingMessage = currentMessages[existingMessageIndex]
+        const updatedMessage =
+          typeof updater === 'function' ? updater(existingMessage) : updater
+
+        // Skip update if updater returns undefined
+        if (updatedMessage === undefined) return
+
         store$.messages.bySessionId[sessionId].set(messages =>
-          messages.map(m =>
-            m.info.id === messageResponse.info.id ? messageResponse : m
+          messages.map((m, index) =>
+            index === existingMessageIndex ? updatedMessage : m
           )
         )
       } else {
         // Add new message
+        const newMessage =
+          typeof updater === 'function' ? updater(undefined) : updater
+
+        // Skip creation if updater returns undefined
+        if (newMessage === undefined) return
+
         store$.messages.bySessionId[sessionId].set([
           ...currentMessages,
-          messageResponse,
+          newMessage,
         ])
       }
-    },
-
-    updateMessage: (
-      sessionId: string,
-      messageId: string,
-      updates: Partial<SessionMessageResponse>
-    ) => {
-      store$.messages.bySessionId[sessionId].set(messages =>
-        messages.map(msg =>
-          msg.info.id === messageId ? { ...msg, ...updates } : msg
-        )
-      )
     },
 
     clearMessages: (sessionId: string) => {
