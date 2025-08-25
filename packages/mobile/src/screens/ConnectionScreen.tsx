@@ -8,7 +8,6 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { APP_CONFIG } from '../config/constants'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
-import { isConnecting } from '../store/computed'
 
 export default function ConnectionScreen() {
   const router = useRouter()
@@ -20,7 +19,7 @@ export default function ConnectionScreen() {
   )
 
   // LegendState integration
-  const connecting = useSelector(isConnecting)
+  const connecting = useSelector(store$.connection.status) === 'connecting'
   const connectionState = useSelector(store$.connection)
   const error = connectionState.error
 
