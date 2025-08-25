@@ -148,7 +148,7 @@ export default function ChatScreen() {
   )
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !id || !model) return
+    if (!inputValue.trim() || !id) return
 
     const messageContent = inputValue.trim()
     setInputValue('')
@@ -157,15 +157,7 @@ export default function ChatScreen() {
     setTimeout(() => scrollToBottom(), 100)
 
     try {
-      const currentSelection = store$.models.selected.get()
-      const providerId = currentSelection?.providerID || 'anthropic'
-      await actions.messages.sendMessage(
-        id,
-        messageContent,
-        model.id,
-        providerId,
-        currentAgent?.name || 'build'
-      )
+      await actions.messages.sendMessage(id, messageContent)
     } catch (err) {
       console.error('Failed to send message:', err)
       // Error handling is managed by store actions
