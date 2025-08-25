@@ -13,6 +13,7 @@ import { Header } from '../components/ui/Header'
 import { SectionHeader } from '../components/ui/SectionHeader'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
+import type { SessionListItem } from '../store/computed'
 import {
   appInfo,
   isConnected,
@@ -22,7 +23,6 @@ import {
   selectedModel,
   sessionListItems,
 } from '../store/computed'
-import type { SessionListItem } from '../store/computed'
 
 export default function SessionListScreen() {
   const router = useRouter()
@@ -63,31 +63,11 @@ export default function SessionListScreen() {
     try {
       // Create the session first
       const newSession = await actions.sessions.createSession()
+      await actions.messages.sendMessage(newSession.id, messageContent)
 
-      // Navigate immediately for fast UX
       router.push(`/chat/${newSession.id}`)
-
-      // Send the initial message in the background (don't await)
-      if (model) {
-        const currentSelection = store$.models.selected.get()
-        const providerId = currentSelection?.providerID || 'anthropic'
-
-        // Fire and forget - let it happen in background
-        actions.messages
-          .sendMessage(
-            newSession.id,
-            messageContent,
-            model.id,
-            providerId,
-            currentAgent?.name || 'build'
-          )
-          .catch(error => {
-            console.error('Failed to send initial message:', error)
-            // Could show a toast here if needed
-          })
-      }
     } catch (error) {
-      console.error('Failed to create session:', error)
+      console.error('Failed to create session or send message:', error)
       // TODO: Show error toast
     }
   }
