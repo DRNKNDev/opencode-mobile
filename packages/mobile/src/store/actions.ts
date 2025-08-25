@@ -11,12 +11,6 @@ const CACHE_TTL = {
   messages: 2 * 60 * 1000, // 2 minutes
 }
 
-// Simple helper to check if cache is valid
-const isCacheValid = (lastFetched: number | null, ttl: number): boolean => {
-  if (!lastFetched) return false
-  return Date.now() - lastFetched < ttl
-}
-
 export const actions = {
   // Connection actions
   connection: {
@@ -109,7 +103,8 @@ export const actions = {
 
         if (
           existingSessions.length > 0 &&
-          isCacheValid(lastFetched, CACHE_TTL.sessions)
+          lastFetched &&
+          Date.now() - lastFetched < CACHE_TTL.sessions
         ) {
           debug.info('Using cached sessions, skipping API call')
           return
@@ -255,7 +250,8 @@ export const actions = {
 
         if (
           existingMessages.length > 0 &&
-          isCacheValid(lastFetched, CACHE_TTL.messages)
+          lastFetched &&
+          Date.now() - lastFetched < CACHE_TTL.messages
         ) {
           debug.info(
             `Using cached messages for session ${sessionId}, skipping API call`
@@ -406,7 +402,8 @@ export const actions = {
 
         if (
           existingProviders.length > 0 &&
-          isCacheValid(lastFetched, CACHE_TTL.providers)
+          lastFetched &&
+          Date.now() - lastFetched < CACHE_TTL.providers
         ) {
           debug.info('Using cached providers, skipping API call')
           return
@@ -457,7 +454,8 @@ export const actions = {
 
         if (
           existingAgents.length > 0 &&
-          isCacheValid(lastFetched, CACHE_TTL.agents)
+          lastFetched &&
+          Date.now() - lastFetched < CACHE_TTL.agents
         ) {
           debug.info('Using cached agents, skipping API call')
           return
