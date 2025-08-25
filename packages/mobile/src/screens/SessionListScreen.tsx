@@ -37,12 +37,8 @@ export default function SessionListScreen() {
   const currentAppInfo = useSelector(appInfo)
   const isGitRepository = useSelector(isGitRepo)
   const currentProjectName = useSelector(projectName)
-  const sessionState = useSelector(() => ({
-    isLoading: store$.sessions.isLoading.get(),
-    isCreating: store$.sessions.isCreating.get(),
-  }))
-  const { isLoading, isCreating } = sessionState
-  const isRefreshing = isLoading
+  const isLoading = useSelector(() => store$.sessions.isLoading.get())
+  const isCreating = useSelector(() => store$.sessions.isCreating.get())
 
   const isTablet = width > 768
 
@@ -210,7 +206,7 @@ export default function SessionListScreen() {
             recycleItems
             refreshControl={
               <RefreshControl
-                refreshing={isRefreshing}
+                refreshing={isLoading}
                 onRefresh={handleRefresh}
                 tintColor="$color11"
               />
