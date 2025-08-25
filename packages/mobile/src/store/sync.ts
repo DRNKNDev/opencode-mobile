@@ -7,7 +7,6 @@ import { store$ } from './index'
 class SyncService {
   private eventStream: AsyncGenerator<Event> | null = null
   private isListening = false
-  private retryCount = 0
 
   async startSync() {
     if (this.isListening) {
@@ -18,9 +17,6 @@ class SyncService {
       this.isListening = true
       this.eventStream = openCodeService.streamEvents()
 
-      store$.connection.status.set('connected')
-      this.retryCount = 0
-
       for await (const event of this.eventStream) {
         await this.handleEvent(event)
       }
@@ -28,31 +24,15 @@ class SyncService {
       console.error('SSE connection error:', error)
       this.isListening = false
 
-      store$.connection.status.set('error')
       store$.connection.error.set(
         error instanceof Error ? error.message : 'SSE connection failed'
       )
-
-      // Enhanced retry with exponential backoff
-      const retryDelay = this.getRetryDelay()
-      setTimeout(() => {
-        if (store$.connection.status.get() === 'error') {
-          this.startSync()
-        }
-      }, retryDelay)
     }
-  }
-
-  private getRetryDelay(): number {
-    const delay = Math.min(1000 * Math.pow(2, this.retryCount), 16000) // Max 16s
-    this.retryCount = Math.min(this.retryCount + 1, 5)
-    return delay
   }
 
   stopSync() {
     this.isListening = false
     this.eventStream = null
-    this.retryCount = 0
   }
 
   private async handleEvent(event: Event) {
