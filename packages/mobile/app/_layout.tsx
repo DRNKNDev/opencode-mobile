@@ -36,10 +36,7 @@ function AppContent() {
           <Stack.Screen name="index" />
           <Stack.Screen name="connection" />
           <Stack.Screen name="sessions" />
-          <Stack.Screen
-            name="chat/[id]"
-            getId={props => `chat-${String(props?.params?.id || 'unknown')}`}
-          />
+          <Stack.Screen name="chat/[id]" />
         </Stack>
       </PortalProvider>
     </TamaguiProvider>
