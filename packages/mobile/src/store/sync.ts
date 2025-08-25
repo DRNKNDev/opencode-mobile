@@ -250,15 +250,18 @@ class SyncService {
     // Update the session in the store
     store$.sessions.list.set(sessions => {
       const existingIndex = sessions.findIndex(s => s.id === session.id)
+      let updated: typeof sessions
+
       if (existingIndex >= 0) {
         // Update existing session
-        const updated = [...sessions]
+        updated = [...sessions]
         updated[existingIndex] = session
-        return updated
       } else {
         // Add new session
-        return [...sessions, session]
+        updated = [...sessions, session]
       }
+
+      return updated.sort((a, b) => b.time.updated - a.time.updated)
     })
   }
 }
