@@ -130,7 +130,8 @@ export const actions = {
 
       try {
         const sessions = await openCodeService.getSessions()
-        store$.sessions.list.set(sessions)
+        const sorted = sessions.sort((a, b) => b.time.updated - a.time.updated)
+        store$.sessions.list.set(sorted)
         store$.cache.sessionsLastFetched.set(Date.now())
       } catch (error) {
         setActionError(

@@ -124,12 +124,11 @@ export const isSendingMessage = computed(() => store$.messages.isSending.get())
 // Session list items with headers for LegendList
 export const sessionListItems = computed((): SessionListItem[] => {
   const sessions = store$.sessions.list.get()
-  const sorted = [...sessions].sort((a, b) => b.time.updated - a.time.updated)
 
   const items: SessionListItem[] = []
   let currentPeriod: string | null = null
 
-  sorted.forEach(session => {
+  sessions.forEach(session => {
     // Determine time period and header
     const now = Date.now()
     const sessionDate = new Date(session.time.updated)
