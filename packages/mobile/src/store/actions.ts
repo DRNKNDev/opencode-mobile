@@ -287,13 +287,7 @@ export const actions = {
       }
     },
 
-    sendMessage: async (
-      sessionId: string,
-      content: string,
-      modelId: string,
-      providerId: string,
-      agent?: string
-    ) => {
+    sendMessage: async (sessionId: string, content: string) => {
       if (
         store$.connection.status.get() !== 'connected' ||
         !openCodeService.isInitialized()
@@ -301,17 +295,31 @@ export const actions = {
         throw new Error('Not connected to server')
       }
 
+      // Get current selections from store
+      const modelSelection = store$.models.selected.get()
+      const agentName = store$.agents.selected.get()
+
+      // Validate we have required selections
+      if (!modelSelection?.modelID) {
+        throw new Error('No model selected')
+      }
+      if (!modelSelection.providerID) {
+        throw new Error('No provider selected')
+      }
+      if (!agentName) {
+        throw new Error('No agent selected')
+      }
+
       store$.messages.isSending.set(true)
       store$.messages.error.set(null)
 
       try {
-        // Send message to server
         await openCodeService.sendMessage(
           sessionId,
           content,
-          modelId,
-          providerId,
-          agent
+          modelSelection.modelID,
+          modelSelection.providerID,
+          agentName
         )
       } catch (error) {
         setActionError(
