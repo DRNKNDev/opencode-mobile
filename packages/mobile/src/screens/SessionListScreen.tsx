@@ -2,7 +2,7 @@ import { LegendList } from '@legendapp/list'
 import { useSelector } from '@legendapp/state/react'
 import type { Session } from '@opencode-ai/sdk'
 import { Folder, FolderGit2, MessageCircle } from '@tamagui/lucide-icons'
-import { useRouter } from 'expo-router'
+import { router } from 'expo-router'
 import React, { useEffect, useState } from 'react'
 import { RefreshControl, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -25,7 +25,6 @@ import {
 } from '../store/computed'
 
 export default function SessionListScreen() {
-  const router = useRouter()
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
   const [newSessionInput, setNewSessionInput] = useState('')
@@ -63,9 +62,13 @@ export default function SessionListScreen() {
     try {
       // Create the session first
       const newSession = await actions.sessions.createSession()
-      await actions.messages.sendMessage(newSession.id, messageContent)
-
       router.push(`/chat/${newSession.id}`)
+
+      actions.messages
+        .sendMessage(newSession.id, messageContent)
+        .catch(error => {
+          console.error('Failed to send initial message:', error)
+        })
     } catch (error) {
       console.error('Failed to create session or send message:', error)
       // TODO: Show error toast
