@@ -12,7 +12,6 @@ import CodeHighlighter from 'react-native-code-highlighter'
 import { atomOneDarkReasonable } from 'react-syntax-highlighter/dist/esm/styles/hljs'
 import { Button, Text, XStack, YStack, useTheme } from 'tamagui'
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
-import { loadLanguage } from '../../utils/languageLoader'
 
 interface DiffViewerProps {
   oldString: string
