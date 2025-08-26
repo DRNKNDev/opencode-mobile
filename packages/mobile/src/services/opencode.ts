@@ -33,19 +33,9 @@ class OpenCodeService {
     return this.config
   }
 
-  async getAppInfo(): Promise<{
-    hostname: string
+  async getApp(): Promise<{
     git: boolean
-    path: {
-      config: string
-      data: string
-      root: string
-      cwd: string
-      state: string
-    }
-    time: {
-      initialized?: number
-    }
+    root: string
   }> {
     if (!this.client) {
       throw new Error('Client not initialized')
@@ -61,7 +51,10 @@ class OpenCodeService {
         throw new Error('No app info returned')
       }
 
-      return response.data
+      return {
+        git: response.data.git,
+        root: response.data.path.root,
+      }
     } catch (error) {
       console.error('Failed to get app info:', error)
       throw error
