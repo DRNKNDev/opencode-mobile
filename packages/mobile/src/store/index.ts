@@ -22,19 +22,9 @@ export interface StoreState {
     error: string | null
     isLoading: boolean
     lastConnected: Date | null
-    appInfo: {
-      hostname: string
+    app: {
       git: boolean
-      path: {
-        config: string
-        data: string
-        root: string
-        cwd: string
-        state: string
-      }
-      time: {
-        initialized?: number
-      }
+      root: string
     } | null
   }
 
@@ -91,7 +81,7 @@ export const store$ = observable<StoreState>({
     error: null,
     isLoading: false,
     lastConnected: null,
-    appInfo: null,
+    app: null,
   },
 
   theme: 'tokyonight-dark',
