@@ -6,12 +6,12 @@
     "packages/*"
   ],
   "scripts": {
-    "mobile:start": "npm run start --workspace=packages/mobile",
-    "mobile:android": "npm run android --workspace=packages/mobile",
-    "mobile:ios": "npm run ios --workspace=packages/mobile",
-    "build": "npm run build --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "mobile:start": "bun run --filter @patjoe/mobile start",
+    "mobile:android": "bun run --filter @patjoe/mobile android",
+    "mobile:ios": "bun run --filter @patjoe/mobile ios",
+    "build": "bun run --filter '*' build",
+    "lint": "bun run --filter '*' lint",
+    "test": "bun run --filter '*' test",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
