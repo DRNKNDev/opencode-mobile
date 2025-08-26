@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, Copy } from '@tamagui/lucide-icons'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { ScrollView, StyleSheet } from 'react-native'
 import CodeHighlighter from 'react-native-code-highlighter'
 import { atomOneDarkReasonable } from 'react-syntax-highlighter/dist/esm/styles/hljs'
@@ -20,7 +20,7 @@ interface CodeBlockProps {
 
 export function CodeBlock({
   code,
-  language = 'text',
+  language,
   filename,
   showLineNumbers = true,
   copyable = true,
@@ -29,7 +29,6 @@ export function CodeBlock({
   showHeader = true,
 }: CodeBlockProps) {
   const [isCollapsed, setIsCollapsed] = useState(collapsible)
-  const [isLanguageLoaded, setIsLanguageLoaded] = useState(false)
   const { copyToClipboard } = useCopyToClipboard()
   const theme = useTheme()
 
@@ -47,14 +46,6 @@ export function CodeBlock({
     }),
     [theme.background.val]
   )
-
-  useEffect(() => {
-    if (language !== 'text') {
-      loadLanguage(language).then(() => setIsLanguageLoaded(true))
-    } else {
-      setIsLanguageLoaded(true)
-    }
-  }, [language])
 
   // Styles for react-native-code-highlighter
   const codeStyles = StyleSheet.create({
@@ -88,7 +79,7 @@ export function CodeBlock({
         >
           <XStack alignItems="center" gap="$2">
             <Text fontSize="$3" fontWeight="600" color="$color">
-              {title || filename || `${language} code`}
+              {title || filename || `${language || 'text'} code`}
             </Text>
             {lines.length > 1 && (
               <Text fontSize="$2" color="$color11">
@@ -124,7 +115,7 @@ export function CodeBlock({
       {/* Code Content */}
       {!isCollapsed && (
         <YStack maxHeight={250}>
-          {isLanguageLoaded && language !== 'text' ? (
+          {language ? (
             // Wrap CodeHighlighter with nested ScrollViews for bidirectional scrolling
             <ScrollView
               showsVerticalScrollIndicator={true}

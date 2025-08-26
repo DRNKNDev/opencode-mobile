@@ -6,7 +6,7 @@ import {
   GitBranch,
 } from '@tamagui/lucide-icons'
 import { diffLines } from 'diff'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { ScrollView, StyleSheet } from 'react-native'
 import CodeHighlighter from 'react-native-code-highlighter'
 import { atomOneDarkReasonable } from 'react-syntax-highlighter/dist/esm/styles/hljs'
@@ -29,7 +29,7 @@ export function DiffViewer({
   oldString,
   newString,
   filename,
-  language = 'text',
+  language,
   copyable = true,
   collapsible = false,
   modeToggleable = true,
@@ -41,7 +41,6 @@ export function DiffViewer({
     'unified' | 'split' | 'before' | 'after'
   >('unified')
   const viewMode = externalViewMode || internalViewMode
-  const [isLanguageLoaded, setIsLanguageLoaded] = useState(false)
   const { copyToClipboard } = useCopyToClipboard()
   const theme = useTheme()
 
@@ -73,14 +72,6 @@ export function DiffViewer({
     return { additions, deletions }
   }, [diff])
 
-  useEffect(() => {
-    if (language !== 'text') {
-      loadLanguage(language).then(() => setIsLanguageLoaded(true))
-    } else {
-      setIsLanguageLoaded(true)
-    }
-  }, [language])
-
   // Styles for react-native-code-highlighter
   const codeStyles = StyleSheet.create({
     codeContainer: {
@@ -106,7 +97,7 @@ export function DiffViewer({
       })
       .join('\n')
 
-    if (isLanguageLoaded && language !== 'text') {
+    if (language) {
       return (
         <ScrollView
           showsVerticalScrollIndicator={true}
@@ -256,7 +247,7 @@ export function DiffViewer({
             </Text>
           </XStack>
           <YStack maxHeight={250}>
-            {isLanguageLoaded && language !== 'text' ? (
+            {language ? (
               <ScrollView
                 showsVerticalScrollIndicator={true}
                 showsHorizontalScrollIndicator={false}
@@ -311,7 +302,7 @@ export function DiffViewer({
             </Text>
           </XStack>
           <YStack maxHeight={250}>
-            {isLanguageLoaded && language !== 'text' ? (
+            {language ? (
               <ScrollView
                 showsVerticalScrollIndicator={true}
                 showsHorizontalScrollIndicator={false}
@@ -370,7 +361,7 @@ export function DiffViewer({
           </Text>
         </XStack>
         <YStack maxHeight={250}>
-          {isLanguageLoaded && language !== 'text' ? (
+          {language ? (
             <ScrollView
               showsVerticalScrollIndicator={true}
               showsHorizontalScrollIndicator={false}
