@@ -1,8 +1,7 @@
+import type { Part } from '@opencode-ai/sdk'
 import { Paperclip } from '@tamagui/lucide-icons'
 import React from 'react'
 import { Card, Text, XStack, YStack } from 'tamagui'
-import type { Part } from '@opencode-ai/sdk'
-import { getFileName, isImageMimeType } from '../../utils/fileUtils'
 
 export interface AttachmentRendererProps {
   files: Part[]
@@ -11,6 +10,23 @@ export interface AttachmentRendererProps {
 function isPdfFile(filename: string): boolean {
   return filename.toLowerCase().endsWith('.pdf')
 }
+
+export const getFileName = (fullPath: string): string => {
+  if (!fullPath) return 'Unknown file'
+  return fullPath.split('/').pop() || fullPath
+}
+
+export const isImageMimeType = (mime?: string): boolean => {
+  if (!mime) return false
+  return [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+  ].includes(mime.toLowerCase())
+}
+
 
 export function AttachmentRenderer({ files }: AttachmentRendererProps) {
   if (!files || files.length === 0) {
