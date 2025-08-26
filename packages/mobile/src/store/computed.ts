@@ -5,7 +5,6 @@ import type {
   Session,
   SessionMessageResponse,
 } from '@opencode-ai/sdk'
-import type { ConnectionStatus } from '../services/types'
 import { TimePeriod } from '../utils/dateFormatting'
 import { store$ } from './index'
 
@@ -60,37 +59,6 @@ export const selectedAgent = computed((): Agent | null => {
 // Available agents
 export const availableAgents = computed((): Agent[] => {
   return store$.agents.available.get()
-})
-
-// Theme computed values
-export const isDarkTheme = computed(
-  () => store$.theme.get() === 'tokyonight-dark'
-)
-export const isLightTheme = computed(
-  () => store$.theme.get() === 'tokyonight-light'
-)
-
-// Loading states
-export const isAnyLoading = computed(
-  () =>
-    store$.connection.isLoading.get() ||
-    store$.sessions.isLoading.get() ||
-    store$.messages.isLoading.get() ||
-    store$.models.isLoading.get()
-)
-
-// Error states
-export const hasAnyError = computed(
-  () =>
-    !!store$.connection.error.get() ||
-    !!store$.sessions.error.get() ||
-    !!store$.messages.error.get()
-)
-
-// Last message in current session
-export const lastMessage = computed((): SessionMessageResponse | null => {
-  const messages = currentMessages.get()
-  return messages.length > 0 ? messages[messages.length - 1] : null
 })
 
 // Check if we're currently sending a message
@@ -161,15 +129,6 @@ export const sessionListItems = computed((): SessionListItem[] => {
   return items
 })
 
-// Connection status for UI
-export const connectionStatus = computed(
-  (): ConnectionStatus => ({
-    connected: isConnected.get(),
-    serverUrl: store$.connection.serverUrl.get(),
-    error: store$.connection.error.get() || undefined,
-  })
-)
-
 // Project name computed from app root path
 export const projectName = computed((): string | null => {
   const app = store$.connection.app.get()
@@ -186,22 +145,3 @@ export const projectName = computed((): string | null => {
 
   return lastSegment || 'root'
 })
-
-// Grouped computed exports for convenience
-export const computed$ = {
-  isConnected,
-  currentMessages,
-  currentSession,
-  selectedModel,
-  selectedAgent,
-  availableAgents,
-  isDarkTheme,
-  isLightTheme,
-  isAnyLoading,
-  hasAnyError,
-  lastMessage,
-  isSendingMessage,
-  sessionListItems,
-  connectionStatus,
-  projectName,
-}
