@@ -5,7 +5,7 @@ import type {
   Session,
   SessionMessageResponse,
 } from '@opencode-ai/sdk'
-import { TimePeriod } from '../utils/dateFormatting'
+import { TimePeriod } from '../utils/dates'
 import { store$ } from './index'
 
 // Session list item interface for LegendList

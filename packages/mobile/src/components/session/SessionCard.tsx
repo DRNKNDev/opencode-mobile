@@ -2,8 +2,8 @@ import type { Session } from '@opencode-ai/sdk'
 import { ChevronRight } from '@tamagui/lucide-icons'
 import React from 'react'
 import { Card, Text, XStack, YStack } from 'tamagui'
-import { formatContextualDate } from '../../utils/dateFormatting'
-import type { TimePeriod } from '../../utils/dateFormatting'
+import { formatContextualDate } from '../../utils/dates'
+import type { TimePeriod } from '../../utils/dates'
 
 export interface SessionCardProps {
   session: Session

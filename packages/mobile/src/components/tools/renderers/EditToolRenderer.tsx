@@ -3,7 +3,7 @@ import { Copy, FileEdit, GitBranch, Eye } from '@tamagui/lucide-icons'
 import { Button, Text, XStack, YStack, ScrollView } from 'tamagui'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
 import type { ToolPart } from '@opencode-ai/sdk'
-import { detectLanguage } from '../../../utils/languageDetection'
+import { detectLanguage } from '../../../utils/syntax'
 import { DiffViewer } from '../../code/DiffViewer'
 
 interface EditToolRendererProps {
