@@ -53,61 +53,22 @@ const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   gitignore: 'gitignore',
 }
 
-export const detectLanguage = (filename?: string, content?: string): string => {
-  // 1. File extension mapping
-  if (filename) {
-    const ext = filename.split('.').pop()?.toLowerCase()
-    if (ext && EXTENSION_TO_LANGUAGE[ext]) {
-      return EXTENSION_TO_LANGUAGE[ext]
-    }
-
-    // Special cases for files without extensions
-    const basename = filename.toLowerCase()
-    if (basename === 'dockerfile') return 'dockerfile'
-    if (basename === 'makefile') return 'makefile'
-    if (basename.includes('gitignore')) return 'gitignore'
+export const detectLanguage = (filename?: string): string | undefined => {
+  if (!filename) {
+    return undefined
   }
 
-  // 2. Content analysis (basic patterns)
-  if (content) {
-    const firstLine = content.split('\n')[0]
-
-    // Shebang detection
-    if (
-      firstLine.startsWith('#!/bin/bash') ||
-      firstLine.startsWith('#!/bin/sh')
-    ) {
-      return 'bash'
-    }
-    if (
-      firstLine.startsWith('#!/usr/bin/env python') ||
-      firstLine.startsWith('#!/usr/bin/python')
-    ) {
-      return 'python'
-    }
-    if (
-      firstLine.startsWith('#!/usr/bin/env node') ||
-      firstLine.startsWith('#!/usr/bin/node')
-    ) {
-      return 'javascript'
-    }
-
-    // Content patterns
-    if (content.includes('import ') && content.includes('from ')) {
-      if (content.includes('React') || content.includes('useState'))
-        return 'javascript'
-      return 'python'
-    }
-    if (content.includes('def ') && content.includes(':')) return 'python'
-    if (content.includes('package ') && content.includes('func ')) return 'go'
-    if (content.includes('fn ') && content.includes('->')) return 'rust'
-    if (
-      content.includes('function ') ||
-      content.includes('const ') ||
-      content.includes('let ')
-    )
-      return 'javascript'
+  // File extension mapping
+  const ext = filename.split('.').pop()?.toLowerCase()
+  if (ext && EXTENSION_TO_LANGUAGE[ext]) {
+    return EXTENSION_TO_LANGUAGE[ext]
   }
 
-  return 'text'
+  // Special cases for files without extensions
+  const basename = filename.toLowerCase()
+  if (basename === 'dockerfile') return 'dockerfile'
+  if (basename === 'makefile') return 'makefile'
+  if (basename.includes('gitignore')) return 'gitignore'
+
+  return undefined
 }
