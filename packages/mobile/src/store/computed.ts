@@ -170,19 +170,13 @@ export const connectionStatus = computed(
   })
 )
 
-// App info computed values
-export const appInfo = computed(() => store$.connection.appInfo.get())
-
-export const isGitRepo = computed(
-  () => store$.connection.appInfo.get()?.git ?? false
-)
-
+// Project name computed from app root path
 export const projectName = computed((): string | null => {
-  const appInfoValue = store$.connection.appInfo.get()
-  if (!appInfoValue?.path.root) return null
+  const app = store$.connection.app.get()
+  if (!app?.root) return null
 
   // Extract last directory name from path
-  const path = appInfoValue.path.root
+  const path = app.root
   if (path === '/' || path === '') return 'root'
 
   // Remove trailing slash and get last segment
@@ -209,7 +203,5 @@ export const computed$ = {
   isSendingMessage,
   sessionListItems,
   connectionStatus,
-  appInfo,
-  isGitRepo,
   projectName,
 }
