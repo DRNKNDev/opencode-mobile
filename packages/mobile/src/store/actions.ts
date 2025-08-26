@@ -46,8 +46,8 @@ export const actions = {
         openCodeService.initialize(config)
 
         // Test connection and get app info
-        const appInfo = await openCodeService.getAppInfo()
-        store$.connection.appInfo.set(appInfo)
+        const app = await openCodeService.getApp()
+        store$.connection.app.set(app)
 
         // Load initial data in parallel
         await Promise.allSettled([
