@@ -1,16 +1,16 @@
 # AGENTS.md - Mobile App Development Guide
 
-## Build/Lint/Test Commands
+## Available Commands
 
-- `npm run lint` - Run ESLint with Expo config
-- `npm run format` - Format all files with Prettier
-- `npm run format:check` - Check formatting without making changes
-- `npm start` - Start Expo development server
-- `npm run android` - Start on Android device/emulator
-- `npm run ios` - Start on iOS device/simulator
-- `npm run web` - Start web version
-- `npm run reset-project` - Reset project to clean state
-- **No test framework configured** - no single test command available
+Run these from the mobile package directory (`/packages/mobile`):
+
+- `bun start` - Start Expo development server
+- `bun run android` - Run on Android device/emulator
+- `bun run ios` - Run on iOS device/simulator
+- `bun run web` - Start web version
+- `bun run lint` - Run ESLint with Expo config
+
+**Note**: You can also run mobile commands from the root using `bun run mobile:*` (see `/AGENTS.md` for root commands)
 
 ## Code Style Guidelines
 
@@ -26,45 +26,23 @@
 - **Error Handling**: Use optional chaining, proper error boundaries, status fields in interfaces
 - **Debug Logging**: Use `@/src/utils/debug.ts` for all debug logging instead of console.log/warn/error
 
-## Commit Message Guidelines
+## Mobile-Specific Guidelines
 
-Follow [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) specification:
+For general commit message guidelines and monorepo information, see `/AGENTS.md`.
 
-**Format**: `<type>[optional scope]: <description>`
+Use `mobile` scope for mobile-specific commits:
 
-**Required Types**:
+- `feat(mobile): add dark mode toggle`
+- `fix(mobile): resolve connection timeout issue`
+- `style(mobile): update button component styling`
 
-- `feat:` - New feature (correlates with MINOR in SemVer)
-- `fix:` - Bug fix (correlates with PATCH in SemVer)
+## Mobile Framework Notes
 
-**Additional Types**:
-
-- `build:` - Build system or external dependencies
-- `chore:` - Maintenance tasks, no production code change
-- `ci:` - CI configuration files and scripts
-- `docs:` - Documentation only changes
-- `style:` - Code style changes (formatting, missing semicolons, etc)
-- `refactor:` - Code change that neither fixes a bug nor adds a feature
-- `perf:` - Performance improvements
-- `test:` - Adding missing tests or correcting existing tests
-- `config:` - Configuration changes
-- `deps:` - Dependency updates
-
-**Breaking Changes**: Use `!` after type/scope or `BREAKING CHANGE:` footer (correlates with MAJOR in SemVer)
-
-**Examples**:
-
-- `feat: add user authentication`
-- `fix(api): resolve timeout issue in user login`
-- `feat!: migrate to new authentication system`
-- `docs: update installation instructions`
-- `deps: upgrade react-native to 0.79`
-
-## Framework Notes
-
-- Built with Expo Router v5+ and React Native 0.79+
-- Uses Tamagui v1.132+ for UI components and theming
-- TypeScript strict mode with expo/tsconfig.base
-- MMKV for storage, React Navigation for routing
-- Prettier configured for React Native/Expo with single quotes, no semicolons
-- No Cursor rules or Copilot instructions found
+- **React Native**: v0.79+ with Expo Router v5+
+- **UI Library**: Tamagui v1.132+ for components and theming
+- **Storage**: MMKV for local data persistence
+- **Navigation**: React Navigation with Expo Router
+- **State Management**: React hooks with proper TypeScript typing
+- **TypeScript**: Strict mode with expo/tsconfig.base
+- **Testing**: No test framework currently configured
+- **Build Tool**: Expo CLI for development and building
