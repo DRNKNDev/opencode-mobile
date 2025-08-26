@@ -15,9 +15,7 @@ import { store$ } from '../store'
 import { actions } from '../store/actions'
 import type { SessionListItem } from '../store/computed'
 import {
-  appInfo,
   isConnected,
-  isGitRepo,
   projectName,
   selectedAgent,
   selectedModel,
@@ -34,8 +32,8 @@ export default function SessionListScreen() {
   const model = useSelector(selectedModel)
   const currentAgent = useSelector(selectedAgent)
   const listItems = useSelector(sessionListItems)
-  const currentAppInfo = useSelector(appInfo)
-  const isGitRepository = useSelector(isGitRepo)
+  const app = useSelector(store$.connection.app)
+  const isGitRepository = app?.git ?? false
   const currentProjectName = useSelector(projectName)
   const isLoading = useSelector(() => store$.sessions.isLoading.get())
   const isCreating = useSelector(() => store$.sessions.isCreating.get())
@@ -156,7 +154,7 @@ export default function SessionListScreen() {
         borderRadius="$6"
       >
         {/* Project info display */}
-        {currentAppInfo && (
+        {app && (
           <XStack
             alignItems="center"
             gap="$2"
