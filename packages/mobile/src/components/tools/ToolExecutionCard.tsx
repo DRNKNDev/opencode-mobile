@@ -2,6 +2,7 @@ import type { ToolPart } from '@opencode-ai/sdk'
 import { ChevronDown, ChevronUp } from '@tamagui/lucide-icons'
 import React from 'react'
 import { Text, XStack, YStack } from 'tamagui'
+import { getFileName } from '../../utils/files'
 
 // Import renderers
 import { BashToolRenderer } from './renderers/BashToolRenderer'
@@ -67,7 +68,7 @@ export function ToolExecutionCard({
             const output = part.state.output || ''
             const readLines = output.split('\n').length
             const input = part.state.input as { filePath?: string }
-            const readFileName = input.filePath?.split('/').pop() || 'file'
+            const readFileName = getFileName(input.filePath || '')
             return readLines > 1
               ? `Read ${readFileName} (${readLines} lines)`
               : `Read ${readFileName}`
@@ -75,14 +76,13 @@ export function ToolExecutionCard({
             const writeOutput = part.state.output || ''
             const writeLines = writeOutput.split('\n').length
             const writeInput = part.state.input as { filePath?: string }
-            const writeFileName =
-              writeInput.filePath?.split('/').pop() || 'file'
+            const writeFileName = getFileName(writeInput.filePath || '')
             return writeLines > 1
               ? `Write ${writeFileName} (${writeLines} lines)`
               : `Write ${writeFileName}`
           case 'edit':
             const editInput = part.state.input as { filePath?: string }
-            const editFileName = editInput.filePath?.split('/').pop() || 'file'
+            const editFileName = getFileName(editInput.filePath || '')
             return `Edit ${editFileName}`
           case 'bash':
             const bashInput = part.state.input as { command?: string }

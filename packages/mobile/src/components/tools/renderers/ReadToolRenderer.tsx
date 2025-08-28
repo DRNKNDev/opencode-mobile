@@ -3,7 +3,7 @@ import { FileText, Copy } from '@tamagui/lucide-icons'
 import { YStack, XStack, Text, Button } from 'tamagui'
 import { CodeBlock } from '../../code/CodeBlock'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
-import { detectLanguage } from '../../../utils/syntax'
+import { detectLanguage } from '../../../utils/files'
 import type { ToolPart } from '@opencode-ai/sdk'
 
 interface ReadToolRendererProps {

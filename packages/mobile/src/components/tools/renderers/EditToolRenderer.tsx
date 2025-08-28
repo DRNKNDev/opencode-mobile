@@ -3,7 +3,7 @@ import { Copy, FileEdit, GitBranch, Eye } from '@tamagui/lucide-icons'
 import { Button, Text, XStack, YStack, ScrollView } from 'tamagui'
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard'
 import type { ToolPart } from '@opencode-ai/sdk'
-import { detectLanguage } from '../../../utils/syntax'
+import { detectLanguage, getFileName } from '../../../utils/files'
 import { DiffViewer } from '../../code/DiffViewer'
 
 interface EditToolRendererProps {
@@ -79,8 +79,7 @@ export function EditToolRenderer({ part, isExpanded }: EditToolRendererProps) {
       <XStack alignItems="center" gap="$2">
         <FileEdit size={16} color="$color11" />
         <Text fontSize="$3" color="$color11" flex={1} numberOfLines={1}>
-          Edit{' '}
-          {filePath !== 'Unknown file' ? filePath.split('/').pop() : 'file'}
+          Edit {getFileName(filePath)}
         </Text>
       </XStack>
     )

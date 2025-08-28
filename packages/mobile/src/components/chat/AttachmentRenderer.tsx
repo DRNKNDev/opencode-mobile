@@ -2,31 +2,11 @@ import type { Part } from '@opencode-ai/sdk'
 import { Paperclip } from '@tamagui/lucide-icons'
 import React from 'react'
 import { Card, Text, XStack, YStack } from 'tamagui'
+import { getFileName } from '../../utils/files'
 
 export interface AttachmentRendererProps {
   files: Part[]
 }
-
-function isPdfFile(filename: string): boolean {
-  return filename.toLowerCase().endsWith('.pdf')
-}
-
-export const getFileName = (fullPath: string): string => {
-  if (!fullPath) return 'Unknown file'
-  return fullPath.split('/').pop() || fullPath
-}
-
-export const isImageMimeType = (mime?: string): boolean => {
-  if (!mime) return false
-  return [
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-  ].includes(mime.toLowerCase())
-}
-
 
 export function AttachmentRenderer({ files }: AttachmentRendererProps) {
   if (!files || files.length === 0) {
@@ -38,7 +18,9 @@ export function AttachmentRenderer({ files }: AttachmentRendererProps) {
     if (file.type !== 'file') return false
     const filename = 'filename' in file ? file.filename || '' : ''
     const mimeType = 'mime' in file ? file.mime : undefined
-    return isImageMimeType(mimeType) || isPdfFile(filename)
+    return (
+      mimeType?.startsWith('image/') || filename.toLowerCase().endsWith('.pdf')
+    )
   })
 
   // If no visible files, don't render anything
@@ -70,9 +52,8 @@ export function AttachmentRenderer({ files }: AttachmentRendererProps) {
           const filename = getFileName(
             'filename' in file ? file.filename || '' : 'Unknown file'
           )
-          const isImage = isImageMimeType(
-            'mime' in file ? file.mime : undefined
-          )
+          const mimeType = 'mime' in file ? file.mime : undefined
+          const isImage = mimeType?.startsWith('image/')
 
           if (isImage) {
             imageCounter++

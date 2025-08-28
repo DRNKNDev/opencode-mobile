@@ -6,6 +6,7 @@ import type {
   SessionMessageResponse,
 } from '@opencode-ai/sdk'
 import { TimePeriod } from '../utils/dates'
+import { getFileName } from '../utils/files'
 import { store$ } from './index'
 
 // Session list item interface for LegendList
@@ -140,8 +141,7 @@ export const projectName = computed((): string | null => {
 
   // Remove trailing slash and get last segment
   const cleanPath = path.replace(/\/$/, '')
-  const segments = cleanPath.split('/')
-  const lastSegment = segments[segments.length - 1]
+  const lastSegment = getFileName(cleanPath)
 
   return lastSegment || 'root'
 })
