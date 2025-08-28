@@ -21,11 +21,20 @@ import {
   selectedModel,
   sessionListItems,
 } from '../store/computed'
+import { useContextSelection } from '../hooks/useContextSelection'
 
 export default function SessionListScreen() {
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
   const [newSessionInput, setNewSessionInput] = useState('')
+
+  // Context selection hook
+  const {
+    selectedContextItems,
+    handleContextItemSelect,
+    handleContextItemDeselect,
+    clearContextSelection,
+  } = useContextSelection()
 
   // LegendState integration
   const connected = useSelector(isConnected)
@@ -58,11 +67,15 @@ export default function SessionListScreen() {
       const newSession = await actions.sessions.createSession()
       router.push(`/chat/${newSession.id}?isNew=true`)
 
+      // Send message with context items
       actions.messages
-        .sendMessage(newSession.id, messageContent)
+        .sendMessage(newSession.id, messageContent, selectedContextItems)
         .catch(error => {
           console.error('Failed to send initial message:', error)
         })
+
+      // Clear context selection after sending
+      clearContextSelection()
     } catch (error) {
       console.error('Failed to create session or send message:', error)
       // TODO: Show error toast
@@ -179,6 +192,9 @@ export default function SessionListScreen() {
           onSubmit={createNewSession}
           onStop={() => {}}
           onModelSelect={handleModelSelect}
+          selectedContextItems={selectedContextItems}
+          onContextItemSelect={handleContextItemSelect}
+          onContextItemDeselect={handleContextItemDeselect}
           placeholder="What can I help you with?"
           currentModel={model?.id}
           disabled={!connected || isCreating}

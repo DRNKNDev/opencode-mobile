@@ -12,6 +12,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Text, YStack } from 'tamagui'
+
 import { InputBar } from '../components/chat/InputBar'
 import { MessageBubble } from '../components/chat/MessageBubble'
 import { Header } from '../components/ui/Header'
@@ -27,6 +28,7 @@ import {
   selectedModel,
 } from '../store/computed'
 import { debug } from '../utils/debug'
+import { useContextSelection } from '../hooks/useContextSelection'
 
 export default function ChatScreen() {
   const { id, isNew } = useLocalSearchParams<{ id: string; isNew?: string }>()
@@ -34,11 +36,20 @@ export default function ChatScreen() {
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
   const listRef = useRef<LegendListRef>(null)
+
   const scrollButtonOpacity = useRef(new Animated.Value(0)).current
   const [inputValue, setInputValue] = useState('')
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isNearBottom, setIsNearBottom] = useState(true)
   const prevMessagesLength = useRef(0)
+
+  // Context selection hook
+  const {
+    selectedContextItems,
+    handleContextItemSelect,
+    handleContextItemDeselect,
+    clearContextSelection,
+  } = useContextSelection()
 
   // LegendState integration
   const connected = useSelector(isConnected)
@@ -154,7 +165,15 @@ export default function ChatScreen() {
     setTimeout(() => scrollToBottom(), 100)
 
     try {
-      await actions.messages.sendMessage(id, messageContent)
+      // Pass message content and context items to the action
+      await actions.messages.sendMessage(
+        id,
+        messageContent,
+        selectedContextItems
+      )
+
+      // Clear context selection after successful message send
+      clearContextSelection()
     } catch (err) {
       console.error('Failed to send message:', err)
       // Error handling is managed by store actions
@@ -307,7 +326,7 @@ export default function ChatScreen() {
         <Animated.View
           style={{
             position: 'absolute',
-            bottom: isTablet ? 170 : 150,
+            bottom: isTablet ? 200 : 175,
             alignSelf: 'center',
             opacity: scrollButtonOpacity,
             pointerEvents: showScrollButton ? 'auto' : 'none',
@@ -334,7 +353,7 @@ export default function ChatScreen() {
           />
         </Animated.View>
 
-        {/* Input Bar */}
+        {/* Input Section with Context */}
         <YStack
           maxWidth={isTablet ? 1200 : undefined}
           alignSelf="center"
@@ -350,12 +369,16 @@ export default function ChatScreen() {
           borderTopLeftRadius="$6"
           borderTopRightRadius="$6"
         >
+          {/* Input Bar */}
           <InputBar
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSendMessage}
             onStop={handleStopStreaming}
             onModelSelect={handleModelSelect}
+            selectedContextItems={selectedContextItems}
+            onContextItemSelect={handleContextItemSelect}
+            onContextItemDeselect={handleContextItemDeselect}
             isStreaming={isStreaming}
             isAborting={isAborting}
             currentModel={model?.id || ''}
