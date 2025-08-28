@@ -1,6 +1,8 @@
 import { debug } from '@/src/utils/debug'
 import type {
   Agent,
+  File,
+  FilePartInput,
   Message,
   Part,
   Provider,
@@ -9,6 +11,24 @@ import type {
 } from '@opencode-ai/sdk'
 import { createOpencodeClient } from '@opencode-ai/sdk/client'
 import EventSource from 'react-native-sse'
+
+// Local type definitions (SDK doesn't export these)
+export interface TextMatch {
+  path: { text: string }
+  lines: { text: string }
+  line_number: number
+  absolute_offset: number
+  submatches: {
+    match: { text: string }
+    start: number
+    end: number
+  }[]
+}
+
+export interface FileContent {
+  type: 'raw' | 'patch'
+  content: string
+}
 
 export interface OpenCodeConfig {
   baseURL: string
@@ -229,9 +249,9 @@ class OpenCodeService {
 
   async sendMessage(
     sessionId: string,
-    content: string,
     modelId: string,
     providerId: string,
+    parts: (TextPartInput | FilePartInput)[],
     agent?: string
   ): Promise<void> {
     if (!this.client) {
@@ -245,15 +265,10 @@ class OpenCodeService {
           modelID: modelId,
           providerID: providerId,
           agent: agent,
-          parts: [
-            {
-              type: 'text',
-              text: content,
-            } as TextPartInput,
-          ],
+          parts: parts,
         },
       })
-
+      console.log(response)
       if ('error' in response && response.error) {
         throw new Error('Failed to send message')
       }
@@ -295,6 +310,98 @@ class OpenCodeService {
     debug.log('SSE: Creating EventSource for', eventURL)
 
     return new EventSource(eventURL)
+  }
+
+  async findFiles(query: string = ''): Promise<string[]> {
+    if (!this.client) {
+      throw new Error('Client not initialized')
+    }
+
+    try {
+      const response = await this.client.find.files({
+        query: { query: query || '' },
+      })
+
+      if ('error' in response && response.error) {
+        debug.error('Failed to find files:', response.error)
+        return []
+      }
+
+      return response.data || []
+    } catch (error) {
+      console.error('Failed to find files:', error)
+      return []
+    }
+  }
+
+  async searchText(pattern: string): Promise<TextMatch[]> {
+    if (!this.client) {
+      throw new Error('Client not initialized')
+    }
+
+    try {
+      const response = await this.client.find.text({
+        query: { pattern },
+      })
+
+      if ('error' in response && response.error) {
+        debug.error('Failed to search text:', response.error)
+        return []
+      }
+
+      return response.data || []
+    } catch (error) {
+      console.error('Failed to search text:', error)
+      return []
+    }
+  }
+
+  async readFile(filePath: string): Promise<FileContent> {
+    if (!this.client) {
+      throw new Error('Client not initialized')
+    }
+
+    try {
+      const response = await this.client.file.read({
+        query: { path: filePath },
+      })
+
+      if ('error' in response && response.error) {
+        throw new Error(`Failed to read file ${filePath}: ${response.error}`)
+      }
+
+      if (!response.data) {
+        throw new Error(`No content returned for file ${filePath}`)
+      }
+
+      return {
+        type: response.data.type as 'raw' | 'patch',
+        content: response.data.content || '',
+      }
+    } catch (error) {
+      console.error('Failed to read file:', error)
+      throw error
+    }
+  }
+
+  async getFileStatus(): Promise<File[]> {
+    if (!this.client) {
+      throw new Error('Client not initialized')
+    }
+
+    try {
+      const response = await this.client.file.status()
+
+      if ('error' in response && response.error) {
+        debug.error('Failed to get file status:', response.error)
+        return []
+      }
+
+      return response.data || []
+    } catch (error) {
+      console.error('Failed to get file status:', error)
+      return []
+    }
   }
 
   disconnect(): void {
