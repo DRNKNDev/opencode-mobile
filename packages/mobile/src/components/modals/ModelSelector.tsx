@@ -3,8 +3,16 @@ import type { Model, Provider } from '@opencode-ai/sdk'
 import { RefreshCw, X } from '@tamagui/lucide-icons'
 import { RadioGroup } from '@tamagui/radio-group'
 import { Sheet } from '@tamagui/sheet'
-import React, { useEffect, useId } from 'react'
-import { Button, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
+import React, { useEffect, useId, useState, useMemo } from 'react'
+import {
+  Button,
+  Input,
+  Separator,
+  Spinner,
+  Text,
+  XStack,
+  YStack,
+} from 'tamagui'
 import { store$ } from '../../store'
 import { actions } from '../../store/actions'
 import { debug } from '../../utils/debug'
@@ -27,6 +35,13 @@ export function ModelSelector({
   const error = useSelector(store$.models.error)
   const instanceId = useId()
 
+  // Search functionality
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text)
+  }
+
   // Load models when modal opens if not already loaded
   useEffect(() => {
     if (open && providers.length === 0 && !isLoading) {
@@ -48,6 +63,7 @@ export function ModelSelector({
   }
 
   const handleClose = () => {
+    setSearchQuery('') // Clear search when closing
     onOpenChange(false)
   }
 
@@ -104,6 +120,39 @@ export function ModelSelector({
       })
     }
   })
+
+  // Filter models based on search query
+  const filterModels = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim()
+    if (!query) return { defaultModels, providerGroups }
+
+    // Filter default models
+    const filteredDefaults = defaultModels.filter(
+      item =>
+        item.model.name.toLowerCase().includes(query) ||
+        item.model.id.toLowerCase().includes(query) ||
+        item.providerName.toLowerCase().includes(query)
+    )
+
+    // Filter provider groups
+    const filteredGroups = providerGroups
+      .map(group => ({
+        ...group,
+        nonDefaultModels: group.nonDefaultModels.filter(
+          model =>
+            model.name.toLowerCase().includes(query) ||
+            model.id.toLowerCase().includes(query) ||
+            group.provider.name?.toLowerCase().includes(query) ||
+            group.provider.id.toLowerCase().includes(query)
+        ),
+      }))
+      .filter(group => group.nonDefaultModels.length > 0)
+
+    return {
+      defaultModels: filteredDefaults,
+      providerGroups: filteredGroups,
+    }
+  }, [searchQuery, defaultModels, providerGroups])
 
   // Constants for model display
   const MODEL_ITEM_HEIGHT = 60 // Approximate height including padding and separator
@@ -216,6 +265,17 @@ export function ModelSelector({
             </XStack>
           </XStack>
 
+          {/* Search Input */}
+          <Input
+            placeholder="Search models or providers..."
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            size="$3"
+            borderWidth={0}
+            focusStyle={{ borderWidth: 0 }}
+            backgroundColor="$backgroundHover"
+          />
+
           {/* Error Message */}
           {error && (
             <Text fontSize="$3" color="$red10" textAlign="center">
@@ -245,6 +305,21 @@ export function ModelSelector({
             </Text>
           )}
 
+          {/* No Search Results State */}
+          {!isLoading &&
+            searchQuery &&
+            filterModels.defaultModels.length === 0 &&
+            filterModels.providerGroups.length === 0 && (
+              <Text
+                fontSize="$4"
+                color="$color11"
+                textAlign="center"
+                padding="$4"
+              >
+                No models found matching "{searchQuery}"
+              </Text>
+            )}
+
           {/* Model List */}
           <Sheet.ScrollView
             height={400}
@@ -259,14 +334,14 @@ export function ModelSelector({
             >
               <YStack gap="$4" paddingRight="$2">
                 {/* Default Models Section */}
-                {defaultModels.length > 0 && (
+                {filterModels.defaultModels.length > 0 && (
                   <YStack gap="$2">
                     <XStack alignItems="center" gap="$2">
                       <Text fontSize="$4" fontWeight="600" color="$blue10">
                         Default
                       </Text>
                       <Text fontSize="$3" color="$color11">
-                        ({defaultModels.length})
+                        ({filterModels.defaultModels.length})
                       </Text>
                     </XStack>
 
@@ -276,7 +351,7 @@ export function ModelSelector({
                       padding="$2"
                     >
                       <YStack gap="$1" paddingRight="$2">
-                        {defaultModels.map((item, index) => (
+                        {filterModels.defaultModels.map((item, index) => (
                           <YStack
                             key={`default-${item.providerId}-${item.model.id}-${index}`}
                           >
@@ -286,7 +361,7 @@ export function ModelSelector({
                               providerName={item.providerName}
                               showProvider={true}
                             />
-                            {index < defaultModels.length - 1 && (
+                            {index < filterModels.defaultModels.length - 1 && (
                               <Separator
                                 marginHorizontal="$3"
                                 borderWidth={0.5}
@@ -302,7 +377,7 @@ export function ModelSelector({
                 {/* All Models by Provider Section */}
                 <YStack gap="$2">
                   <YStack gap="$3">
-                    {providerGroups.map(group => (
+                    {filterModels.providerGroups.map(group => (
                       <YStack key={group.provider.id} gap="$2">
                         <XStack alignItems="center" gap="$2">
                           <Text fontSize="$4" fontWeight="500" color="$color11">
