@@ -1,6 +1,13 @@
-import type { Agent, Session, SessionMessageResponse } from '@opencode-ai/sdk'
+import type {
+  FilePartInput,
+  Session,
+  SessionMessageResponse,
+  TextPartInput,
+} from '@opencode-ai/sdk'
+import type { ContextItem } from '../components/modals/ContextSelector'
 import { openCodeService, type OpenCodeConfig } from '../services/opencode'
 import { debug } from '../utils/debug'
+import { getFileName } from '../utils/files'
 import { store$ } from './index'
 
 // Cache TTL constants
@@ -280,7 +287,11 @@ export const actions = {
       }
     },
 
-    sendMessage: async (sessionId: string, content: string) => {
+    sendMessage: async (
+      sessionId: string,
+      content: string,
+      contextItems: ContextItem[] = []
+    ) => {
       if (store$.connection.status.get() !== 'connected') {
         throw new Error('Not connected to server')
       }
@@ -304,11 +315,53 @@ export const actions = {
       store$.messages.error.set(null)
 
       try {
+        // Construct message parts
+        const parts: (TextPartInput | FilePartInput)[] = []
+
+        // Add main text part
+        parts.push({
+          type: 'text',
+          text: content,
+        } as TextPartInput)
+
+        // Get app root once for converting relative paths to absolute
+        const appRoot = store$.connection.app.get()?.root || ''
+
+        // Add file parts for each context item
+        for (const item of contextItems) {
+          if (item.type === 'file') {
+            const absolutePath = appRoot
+              ? `${appRoot.replace(/\/$/, '')}/${item.path.replace(/^\//, '')}`
+              : item.path
+            const filename = getFileName(item.path)
+
+            parts.push({
+              type: 'file',
+              mime: 'text/plain',
+              filename: filename,
+              url: `file://${absolutePath}`,
+            } as FilePartInput)
+          } else if (item.type === 'text') {
+            // Text matches are also sent as file parts with line references
+            const absolutePath = appRoot
+              ? `${appRoot.replace(/\/$/, '')}/${item.path.replace(/^\//, '')}`
+              : item.path
+            const filename = getFileName(item.path)
+
+            parts.push({
+              type: 'file',
+              mime: 'text/plain',
+              filename: `${filename}:L${item.start}${item.start !== item.end ? `-${item.end}` : ''}`,
+              url: `file://${absolutePath}`,
+            } as FilePartInput)
+          }
+        }
+
         await openCodeService.sendMessage(
           sessionId,
-          content,
           modelSelection.modelID,
           modelSelection.providerID,
+          parts,
           agentName
         )
       } catch (error) {
