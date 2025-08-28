@@ -1,11 +1,19 @@
 import { useSelector } from '@legendapp/state/react'
-import { ArrowUpCircle, ChevronDown, StopCircle } from '@tamagui/lucide-icons'
+import {
+  ArrowUpCircle,
+  AtSign,
+  ChevronDown,
+  StopCircle,
+} from '@tamagui/lucide-icons'
 import React, { useState } from 'react'
 import { Button, Text, XStack, YStack } from 'tamagui'
+import { openCodeService } from '../../services/opencode'
 import { selectedAgent, selectedModel } from '../../store/computed'
 import { AgentSelector, getAgentInfo } from '../modals/AgentSelector'
+import { ContextSelector, type ContextItem } from '../modals/ContextSelector'
 import { ModelSelector } from '../modals/ModelSelector'
 import { TextArea } from '../ui/TextArea'
+import { SelectedContextDisplay } from './SelectedContextDisplay'
 
 export interface InputBarProps {
   value: string
@@ -13,6 +21,9 @@ export interface InputBarProps {
   onSubmit: () => void
   onStop: () => void
   onModelSelect?: (modelId: string, providerId: string) => void
+  selectedContextItems?: ContextItem[]
+  onContextItemSelect?: (item: ContextItem) => void
+  onContextItemDeselect?: (item: ContextItem) => void
   disabled?: boolean
   placeholder?: string
   isStreaming?: boolean
@@ -26,6 +37,9 @@ export function InputBar({
   onSubmit,
   onStop,
   onModelSelect,
+  selectedContextItems = [],
+  onContextItemSelect,
+  onContextItemDeselect,
   disabled = false,
   placeholder = 'Type a message...',
   isStreaming = false,
@@ -36,6 +50,7 @@ export function InputBar({
   const currentSelectedModel = useSelector(selectedModel)
   const [showModelSelector, setShowModelSelector] = useState(false)
   const [showAgentSelector, setShowAgentSelector] = useState(false)
+  const [showContextSelector, setShowContextSelector] = useState(false)
   const canSend = value.trim().length > 0 && !disabled
 
   const getModelName = (): string => {
@@ -56,6 +71,16 @@ export function InputBar({
 
   return (
     <YStack>
+      {/* Show selected context items above the input when any are selected */}
+      {selectedContextItems.length > 0 && (
+        <XStack paddingHorizontal="$2" paddingBottom="$2">
+          <SelectedContextDisplay
+            selectedItems={selectedContextItems}
+            onRemoveItem={onContextItemDeselect || (() => {})}
+          />
+        </XStack>
+      )}
+
       <TextArea
         value={value}
         onChangeText={onChange}
@@ -107,24 +132,42 @@ export function InputBar({
           </Button>
         </XStack>
 
-        <Button
-          width={36}
-          height={36}
-          borderRadius={18}
-          backgroundColor={isStreaming ? '$red10' : '$blue10'}
-          color="white"
-          icon={isStreaming ? StopCircle : ArrowUpCircle}
-          scaleIcon={1.5}
-          onPress={isStreaming ? handleStop : handleSubmit}
-          disabled={(!isStreaming && !canSend) || isAborting}
-          animation={isAborting ? 'bouncy' : undefined}
-          animateOnly={isAborting ? ['opacity'] : undefined}
-          opacity={isAborting ? 0.7 : 1}
-          pressStyle={{
-            scale: 0.95,
-            backgroundColor: isStreaming && !isAborting ? '$red11' : '$blue11',
-          }}
-        />
+        <XStack alignItems="center" gap="$2">
+          {/* Add Context button - just icon */}
+          <Button
+            size="$3"
+            chromeless
+            icon={AtSign}
+            disabled={!openCodeService.isInitialized() || disabled}
+            onPress={() => setShowContextSelector(true)}
+            pressStyle={{
+              backgroundColor: '$backgroundPress',
+            }}
+            aria-label="Add context"
+            color="$color11"
+          />
+
+          {/* Submit/Stop button */}
+          <Button
+            width={36}
+            height={36}
+            borderRadius={18}
+            backgroundColor={isStreaming ? '$red10' : '$blue10'}
+            color="white"
+            icon={isStreaming ? StopCircle : ArrowUpCircle}
+            scaleIcon={1.5}
+            onPress={isStreaming ? handleStop : handleSubmit}
+            disabled={(!isStreaming && !canSend) || isAborting}
+            animation={isAborting ? 'bouncy' : undefined}
+            animateOnly={isAborting ? ['opacity'] : undefined}
+            opacity={isAborting ? 0.7 : 1}
+            pressStyle={{
+              scale: 0.95,
+              backgroundColor:
+                isStreaming && !isAborting ? '$red11' : '$blue11',
+            }}
+          />
+        </XStack>
       </XStack>
 
       <ModelSelector
@@ -140,6 +183,15 @@ export function InputBar({
       <AgentSelector
         open={showAgentSelector}
         onOpenChange={setShowAgentSelector}
+      />
+
+      {/* Add Context Selector modal - always render but with no-op handlers if not provided */}
+      <ContextSelector
+        open={showContextSelector}
+        onOpenChange={setShowContextSelector}
+        onItemSelect={onContextItemSelect || (() => {})}
+        onItemDeselect={onContextItemDeselect || (() => {})}
+        selectedItems={selectedContextItems}
       />
     </YStack>
   )
