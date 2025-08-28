@@ -13,13 +13,15 @@ export function AttachmentRenderer({ files }: AttachmentRendererProps) {
     return null
   }
 
-  // Filter to only show file parts that are images and PDFs
+  // Filter to show file parts that are images, PDFs, and text files
   const visibleFiles = files.filter(file => {
     if (file.type !== 'file') return false
     const filename = 'filename' in file ? file.filename || '' : ''
     const mimeType = 'mime' in file ? file.mime : undefined
     return (
-      mimeType?.startsWith('image/') || filename.toLowerCase().endsWith('.pdf')
+      mimeType?.startsWith('image/') ||
+      filename.toLowerCase().endsWith('.pdf') ||
+      mimeType?.startsWith('text/')
     )
   })
 
@@ -54,12 +56,20 @@ export function AttachmentRenderer({ files }: AttachmentRendererProps) {
           )
           const mimeType = 'mime' in file ? file.mime : undefined
           const isImage = mimeType?.startsWith('image/')
+          const isText = mimeType?.startsWith('text/')
 
           if (isImage) {
             imageCounter++
             return (
               <Text key={index} fontSize="$3" color="$color">
                 [Image #{imageCounter}] {filename}
+              </Text>
+            )
+          } else if (isText) {
+            fileCounter++
+            return (
+              <Text key={index} fontSize="$3" color="$color">
+                [Text File] {filename}
               </Text>
             )
           } else {
