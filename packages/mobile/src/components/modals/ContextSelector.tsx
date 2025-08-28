@@ -296,6 +296,7 @@ export function ContextSelector({
             size="$3"
             borderWidth={0}
             focusStyle={{ borderWidth: 0 }}
+            backgroundColor="$backgroundHover"
           />
 
           {/* Results */}
