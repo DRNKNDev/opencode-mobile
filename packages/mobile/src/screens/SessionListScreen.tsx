@@ -5,12 +5,15 @@ import { Folder, FolderGit2, MessageCircle } from '@tamagui/lucide-icons'
 import { router } from 'expo-router'
 import React, { useEffect, useState } from 'react'
 import { RefreshControl, useWindowDimensions } from 'react-native'
+import Animated from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text, XStack, YStack } from 'tamagui'
 import { InputBar } from '../components/chat/InputBar'
 import { SessionCard } from '../components/session/SessionCard'
 import { Header } from '../components/ui/Header'
 import { SectionHeader } from '../components/ui/SectionHeader'
+import { useContextSelection } from '../hooks/useContextSelection'
+import { useKeyboardPush } from '../hooks/useKeyboardPush'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
 import type { SessionListItem } from '../store/computed'
@@ -21,12 +24,14 @@ import {
   selectedModel,
   sessionListItems,
 } from '../store/computed'
-import { useContextSelection } from '../hooks/useContextSelection'
 
 export default function SessionListScreen() {
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
   const [newSessionInput, setNewSessionInput] = useState('')
+
+  // Keyboard animation using our custom hook
+  const { animatedStyle: keyboardAnimatedStyle } = useKeyboardPush()
 
   // Context selection hook
   const {
@@ -234,6 +239,9 @@ export default function SessionListScreen() {
           />
         )}
       </YStack>
+
+      {/* This animated view pushes everything up when keyboard appears */}
+      <Animated.View style={keyboardAnimatedStyle} />
     </YStack>
   )
 }
