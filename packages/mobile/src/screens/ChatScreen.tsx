@@ -4,12 +4,8 @@ import type { SessionMessageResponse } from '@opencode-ai/sdk'
 import { ChevronDown } from '@tamagui/lucide-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-  useWindowDimensions,
-} from 'react-native'
+import { Animated, useWindowDimensions } from 'react-native'
+import ReAnimated from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Text, YStack } from 'tamagui'
 
@@ -18,6 +14,8 @@ import { MessageBubble } from '../components/chat/MessageBubble'
 import { Header } from '../components/ui/Header'
 import { SessionActionsButton } from '../components/ui/SessionActionsButton'
 import { MessageSkeleton } from '../components/ui/SkeletonLoader'
+import { useContextSelection } from '../hooks/useContextSelection'
+import { useKeyboardPush } from '../hooks/useKeyboardPush'
 import { store$ } from '../store'
 import { actions } from '../store/actions'
 import {
@@ -28,7 +26,6 @@ import {
   selectedModel,
 } from '../store/computed'
 import { debug } from '../utils/debug'
-import { useContextSelection } from '../hooks/useContextSelection'
 
 export default function ChatScreen() {
   const { id, isNew } = useLocalSearchParams<{ id: string; isNew?: string }>()
@@ -36,6 +33,9 @@ export default function ChatScreen() {
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
   const listRef = useRef<LegendListRef>(null)
+
+  // Keyboard animation using our custom hook
+  const { animatedStyle: keyboardAnimatedStyle } = useKeyboardPush()
 
   const scrollButtonOpacity = useRef(new Animated.Value(0)).current
   const [inputValue, setInputValue] = useState('')
@@ -235,157 +235,153 @@ export default function ChatScreen() {
   )
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={-insets.bottom + 8}
+    <YStack
+      flex={1}
+      backgroundColor="$background"
+      paddingTop={insets.top}
+      paddingLeft={insets.left}
+      paddingRight={insets.right}
     >
+      {/* Header */}
+      <Header
+        title={session?.title || 'Chat'}
+        showBackButton={true}
+        onBackPress={() => router.back()}
+        connected={connected}
+        rightContent={
+          session ? (
+            <SessionActionsButton
+              sessionId={session.id}
+              sessionTitle={session.title}
+              isShared={!!session.share}
+              shareUrl={session.share?.url}
+              onShare={handleShareSession}
+              onUnshare={handleUnshareSession}
+              onDelete={handleDeleteSession}
+              isLoading={store$.sessions.isLoading.get()}
+            />
+          ) : undefined
+        }
+      />
+
+      {/* Messages */}
       <YStack
         flex={1}
-        backgroundColor="$background"
-        paddingTop={insets.top}
-        paddingLeft={insets.left}
-        paddingRight={insets.right}
+        maxWidth={isTablet ? 1200 : undefined}
+        alignSelf="center"
+        width="100%"
       >
-        {/* Header */}
-        <Header
-          title={session?.title || 'Chat'}
-          showBackButton={true}
-          onBackPress={() => router.back()}
-          connected={connected}
-          rightContent={
-            session ? (
-              <SessionActionsButton
-                sessionId={session.id}
-                sessionTitle={session.title}
-                isShared={!!session.share}
-                shareUrl={session.share?.url}
-                onShare={handleShareSession}
-                onUnshare={handleUnshareSession}
-                onDelete={handleDeleteSession}
-                isLoading={store$.sessions.isLoading.get()}
-              />
-            ) : undefined
-          }
-        />
-
-        {/* Messages */}
-        <YStack
-          flex={1}
-          maxWidth={isTablet ? 1200 : undefined}
-          alignSelf="center"
-          width="100%"
-        >
-          {isLoading ? (
-            <MessageSkeleton />
-          ) : sortedMessages.length === 0 ? (
-            <YStack
-              flex={1}
-              justifyContent="center"
-              alignItems="center"
-              gap="$4"
-              padding="$4"
+        {isLoading ? (
+          <MessageSkeleton />
+        ) : sortedMessages.length === 0 ? (
+          <YStack
+            flex={1}
+            justifyContent="center"
+            alignItems="center"
+            gap="$4"
+            padding="$4"
+          >
+            <Text
+              fontSize={isTablet ? '$7' : '$6'}
+              fontWeight="600"
+              color="$color"
             >
-              <Text
-                fontSize={isTablet ? '$7' : '$6'}
-                fontWeight="600"
-                color="$color"
-              >
-                Start a session
-              </Text>
-              <Text
-                fontSize={isTablet ? '$5' : '$4'}
-                color="$color11"
-                textAlign="center"
-                maxWidth={400}
-              >
-                Type a message below to begin chatting with{' '}
-                {model?.name || 'AI'}
-              </Text>
-            </YStack>
-          ) : (
-            <LegendList
-              ref={listRef}
-              data={sortedMessages}
-              renderItem={renderMessage}
-              keyExtractor={item => item.info.id}
-              showsVerticalScrollIndicator={false}
-              onScroll={handleScroll}
-              style={{ flex: 1 }}
-              contentContainerStyle={{
-                paddingVertical: 20,
-                maxWidth: isTablet ? 800 : undefined,
-                alignSelf: isTablet ? 'center' : undefined,
-                width: isTablet ? '100%' : undefined,
-              }}
-            />
-          )}
-        </YStack>
-
-        {/* Scroll to Bottom Button */}
-        <Animated.View
-          style={{
-            position: 'absolute',
-            bottom: isTablet ? 200 : 175,
-            alignSelf: 'center',
-            opacity: scrollButtonOpacity,
-            pointerEvents: showScrollButton ? 'auto' : 'none',
-          }}
-        >
-          <Button
-            width={48}
-            height={48}
-            borderRadius={24}
-            backgroundColor="rgba(0, 0, 0, 0.7)"
-            icon={ChevronDown}
-            scaleIcon={1.2}
-            color="white"
-            onPress={scrollToBottom}
-            pressStyle={{
-              scale: 0.9,
-              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              Start a session
+            </Text>
+            <Text
+              fontSize={isTablet ? '$5' : '$4'}
+              color="$color11"
+              textAlign="center"
+              maxWidth={400}
+            >
+              Type a message below to begin chatting with {model?.name || 'AI'}
+            </Text>
+          </YStack>
+        ) : (
+          <LegendList
+            ref={listRef}
+            data={sortedMessages}
+            renderItem={renderMessage}
+            keyExtractor={item => item.info.id}
+            showsVerticalScrollIndicator={false}
+            onScroll={handleScroll}
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              paddingVertical: 20,
+              maxWidth: isTablet ? 800 : undefined,
+              alignSelf: isTablet ? 'center' : undefined,
+              width: isTablet ? '100%' : undefined,
             }}
-            shadowColor="$shadowColor"
-            shadowOffset={{ width: 0, height: 2 }}
-            shadowOpacity={0.25}
-            shadowRadius={4}
-            elevation={5}
           />
-        </Animated.View>
-
-        {/* Input Section with Context */}
-        <YStack
-          maxWidth={isTablet ? 1200 : undefined}
-          alignSelf="center"
-          width="100%"
-          padding={isTablet ? '$6' : '$4'}
-          marginHorizontal={1}
-          paddingBottom={insets.bottom}
-          backgroundColor="$backgroundHover"
-          borderColor="$borderColor"
-          borderTopWidth={0.5}
-          borderLeftWidth={0.5}
-          borderRightWidth={0.5}
-          borderTopLeftRadius="$6"
-          borderTopRightRadius="$6"
-        >
-          {/* Input Bar */}
-          <InputBar
-            value={inputValue}
-            onChange={setInputValue}
-            onSubmit={handleSendMessage}
-            onStop={handleStopStreaming}
-            onModelSelect={handleModelSelect}
-            selectedContextItems={selectedContextItems}
-            onContextItemSelect={handleContextItemSelect}
-            onContextItemDeselect={handleContextItemDeselect}
-            isStreaming={isStreaming}
-            isAborting={isAborting}
-            currentModel={model?.id || ''}
-            placeholder="Type a message..."
-          />
-        </YStack>
+        )}
       </YStack>
-    </KeyboardAvoidingView>
+
+      {/* Scroll to Bottom Button */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          bottom: isTablet ? 200 : 175,
+          alignSelf: 'center',
+          opacity: scrollButtonOpacity,
+          pointerEvents: showScrollButton ? 'auto' : 'none',
+        }}
+      >
+        <Button
+          width={48}
+          height={48}
+          borderRadius={24}
+          backgroundColor="rgba(0, 0, 0, 0.7)"
+          icon={ChevronDown}
+          scaleIcon={1.2}
+          color="white"
+          onPress={scrollToBottom}
+          pressStyle={{
+            scale: 0.9,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          }}
+          shadowColor="$shadowColor"
+          shadowOffset={{ width: 0, height: 2 }}
+          shadowOpacity={0.25}
+          shadowRadius={4}
+          elevation={5}
+        />
+      </Animated.View>
+
+      {/* Input Section with Context */}
+      <YStack
+        maxWidth={isTablet ? 1200 : undefined}
+        alignSelf="center"
+        width="100%"
+        padding={isTablet ? '$6' : '$4'}
+        marginHorizontal={1}
+        paddingBottom={insets.bottom}
+        backgroundColor="$backgroundHover"
+        borderColor="$borderColor"
+        borderTopWidth={0.5}
+        borderLeftWidth={0.5}
+        borderRightWidth={0.5}
+        borderTopLeftRadius="$6"
+        borderTopRightRadius="$6"
+      >
+        {/* Input Bar */}
+        <InputBar
+          value={inputValue}
+          onChange={setInputValue}
+          onSubmit={handleSendMessage}
+          onStop={handleStopStreaming}
+          onModelSelect={handleModelSelect}
+          selectedContextItems={selectedContextItems}
+          onContextItemSelect={handleContextItemSelect}
+          onContextItemDeselect={handleContextItemDeselect}
+          isStreaming={isStreaming}
+          isAborting={isAborting}
+          currentModel={model?.id || ''}
+          placeholder="Type a message..."
+        />
+      </YStack>
+
+      {/* This animated view pushes everything up when keyboard appears */}
+      <ReAnimated.View style={keyboardAnimatedStyle} />
+    </YStack>
   )
 }
