@@ -4,6 +4,7 @@ import { PortalProvider } from '@tamagui/portal'
 import { Stack } from 'expo-router'
 import { useEffect } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { KeyboardProvider } from 'react-native-keyboard-controller'
 import 'react-native-url-polyfill/auto'
 import { ThemeStatusBar } from '../src/components/ui/ThemeStatusBar'
 import { store$ } from '../src/store'
@@ -28,16 +29,18 @@ function AppContent() {
     <TamaguiProvider config={config} defaultTheme={currentTheme}>
       <ThemeStatusBar />
       <PortalProvider shouldAddRootHost>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="connection" />
-          <Stack.Screen name="sessions" />
-          <Stack.Screen name="chat/[id]" />
-        </Stack>
+        <KeyboardProvider>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="connection" />
+            <Stack.Screen name="sessions" />
+            <Stack.Screen name="chat/[id]" />
+          </Stack>
+        </KeyboardProvider>
       </PortalProvider>
     </TamaguiProvider>
   )
